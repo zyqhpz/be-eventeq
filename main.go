@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -29,80 +28,46 @@ type Book struct {
 	Quantity int    `json:"quantity"`
 }
 
-var books = []Book{
-	{ID: "1", Title: "The Alchemist", Author: "Paulo Coelho", Quantity: 10},
-	{ID: "2", Title: "Building The Story Brand", Author: "Donald Miller", Quantity: 5},
-	{ID: "3", Title: "The 7 Habits of Highly Effective People", Author: "Stephen Covey", Quantity: 7},
-}
-
-func getBooks(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, books)
-}
-
-func bookById(c *gin.Context) {
-	id := c.Param("id")
-	book, err := getBookById(id)
-	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Book not found"})
-	}
-	c.IndentedJSON(http.StatusOK, book)
-}
-
-func checkoutBook(c *gin.Context) {
-	id, ok := c.GetQuery("id")
+// create a function for login user that accepts username and password parameter from POST request and return user if found
+func loginUser(c *gin.Context) {
+	username, ok := c.GetQuery("username")
 	if !ok {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing id query parameter"})
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing username query parameter"})
 	}
-	book, err := getBookById(id)
-	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Book not found"})
+	password, ok := c.GetQuery("password")
+	if !ok {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing password query parameter"})
 	}
 
-	if book.Quantity == 0 {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Book is out of stock"})
-	}
-	book.Quantity--
-	c.IndentedJSON(http.StatusOK, book)
-}
-
-func getBookById(id string) (*Book, error) {
-	for i, b := range books {
-		if b.ID == id {
-			return &books[i], nil
+	for _, u := range users {
+		if u.Username == username && u.Password == password {
+			c.IndentedJSON(http.StatusOK, u)
+			return
 		}
 	}
-	return nil, errors.New("Book not found")
+	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "User not found"})
 }
 
-func returnBook(c *gin.Context) {
-	id, ok := c.GetQuery("id")
-	if !ok {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing id query parameter"})
-	}
-	book, err := getBookById(id)
-	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Book not found"})
-	}
-	book.Quantity++
-	c.IndentedJSON(http.StatusOK, book)
-}
-
-func createBook(c *gin.Context) {
-	var newBook Book
-	if err := c.BindJSON(&newBook); err != nil {
+// create a function for register user
+func registerUser(c *gin.Context) {
+	var newUser User
+	if err := c.BindJSON(&newUser); err != nil {
 		return
 	}
-	books = append(books, newBook)
-	c.IndentedJSON(http.StatusCreated, newBook)
+	users = append(users, newUser)
+	c.IndentedJSON(http.StatusCreated, newUser)
+}
+
+// create function to get all users
+func getUsers(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, users)
 }
 
 func main() {
 	router := gin.Default()
 	router.Use(cors.Default())
-	router.GET("/books", getBooks)
-	router.GET("/books/:id", bookById)
-	router.POST("/books", createBook)
-	router.PATCH("/checkout", checkoutBook)
-	router.PATCH("/return", returnBook)
+	router.POST("/user/login", loginUser)
+	router.POST("/user/register", registerUser)
+	router.GET("/user", getUsers)
 	router.Run("localhost:8080")
 }
