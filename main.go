@@ -68,7 +68,8 @@
 package main
 
 import (
-	model "example/be-eventeq/Models"
+	// model "example/be-eventeq/Models"
+	controller "example/be-eventeq/Controllers"
 
 	"github.com/gofiber/fiber/v2/middleware/cors"
 
@@ -80,7 +81,8 @@ func setupRoutes(app *fiber.App) {
 		return c.SendString("Hello, World!")
 	})
 
-	app.Post("/user/login/*", model.LoginUser).Name("user.login")
+	app.Post("/api/user/login/*", controller.LoginUser).Name("user.login")
+	app.Get("/api/user", controller.GetUsers).Name("user.get")
 
 	app.Post("/user/test/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Login Success"})
