@@ -1,8 +1,9 @@
 package api
 
 import (
-	model "example/be-eventeq/Models"
 	"fmt"
+
+	model "github.com/zyqhpz/be-eventeq/Models"
 
 	"github.com/gofiber/fiber/v2"
 )
