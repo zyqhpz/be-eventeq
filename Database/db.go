@@ -2,18 +2,24 @@ package db
 
 import (
 	"context"
+	"log"
+	"os"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// make const PASSWORD variable to store password string
-const PASSWORD = "LpyaTun3O4AgHXSG"
-
 func ConnectDB() (*mongo.Client, error) {
+
+    password, exists := os.LookupEnv("MONGODB_PASSWORD")
+
+    if !exists {
+		log.Fatal("MONGODB_PASSWORD environment variable not set")
+	}
+
     // Set client options
-    clientOptions := options.Client().ApplyURI("mongodb+srv://zyqhpz:"+PASSWORD+"@eventeq.obgaljj.mongodb.net/?retryWrites=true&w=majority")
+    clientOptions := options.Client().ApplyURI("mongodb+srv://zyqhpz:"+password+"@eventeq.obgaljj.mongodb.net/?retryWrites=true&w=majority")
 
     // Connect to MongoDB Atlas
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
