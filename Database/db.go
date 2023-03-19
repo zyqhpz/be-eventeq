@@ -6,17 +6,21 @@ import (
 	"os"
 	"time"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func ConnectDB() (*mongo.Client, error) {
 
-    password, exists := os.LookupEnv("MONGODB_PASSWORD")
+    // Load the .env file
+    err := godotenv.Load()
+    if err != nil {
+        log.Fatal("Error loading .env file")
+    }
 
-    if !exists {
-		log.Fatal("MONGODB_PASSWORD environment variable not set")
-	}
+    // Get the value of the MY_STRING key
+    password := os.Getenv("MONGODB_PASSWORD")
 
     // Set client options
     clientOptions := options.Client().ApplyURI("mongodb+srv://zyqhpz:"+password+"@eventeq.obgaljj.mongodb.net/?retryWrites=true&w=majority")
