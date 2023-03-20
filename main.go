@@ -23,9 +23,12 @@ func setupRoutes(app *fiber.App) {
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("Hello, World!")
 	})
+	
+	app.Get("/api/user", controller.GetUsers).Name("user.get")
 
 	app.Post("/api/user/login/*", controller.LoginUser).Name("user.login")
-	app.Get("/api/user", controller.GetUsers).Name("user.get")
+	app.Post("/api/user/register/*", controller.RegisterUser).Name("user.register")
+	
 	app.Get("/api/planet", GetPlanets).Name("planet.get")
 
 	app.Post("/user/test/", func(c *fiber.Ctx) error {

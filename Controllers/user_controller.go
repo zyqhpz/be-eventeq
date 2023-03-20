@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"log"
 	"time"
@@ -33,9 +34,9 @@ func GetUsers(c *fiber.Ctx) error {
 	client, err  := db.ConnectDB()
 	ctx := context.Background()
 	defer client.Disconnect(ctx)
-	collection := ConnectDBUsers(client)
+	collectionUsers := ConnectDBUsers(client)
 
-	cursor, err := collection.Find(ctx, bson.M{})
+	cursor, err := collectionUsers.Find(ctx, bson.M{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -50,9 +51,6 @@ func GetUsers(c *fiber.Ctx) error {
 		}
 		users = append(users, user)
 	}
-
-	fmt.Print("Get all users: ", users)
-
 	return c.JSON(users)
 }
 
@@ -98,20 +96,27 @@ func RegisterUser(c *fiber.Ctx) error {
 	password := c.FormValue("password")
 	email := c.FormValue("email")
 
+	// hash the password in sha256
+	password = fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
+
 	client, _  := db.ConnectDB()
 
 	collection := ConnectDBUsers(client)
 
-	// Define a filter to find the user with the given username and password
-	filter := bson.M{"username": username}
+	// Define a filter to find the user with the given username and email, if any exist return error message
+	filterUsername := bson.M{"username": username}
+	filterEmail := bson.M{"email": email}
 
 	// Count the number of documents that match the filter
 	ctx := context.Background()
-	count, _ := collection.CountDocuments(ctx, filter)
+	countUsername, _ := collection.CountDocuments(ctx, filterUsername)
+	countEmail, _ := collection.CountDocuments(ctx, filterEmail)
 
 	// Return error if a user with the given username was found
-	if (count > 0) {
-		return c.JSON(fiber.Map{"status": "failed", "message": "Username already exists"})
+	if (countUsername > 0) {
+		return c.JSON(fiber.Map{"status": "failed username", "message": "Username already exists"})
+	} else if (countEmail > 0) {
+		return c.JSON(fiber.Map{"status": "failed email", "message": "Email already exists"})
 	} else {
 		// Create a new user
 		user := model.User{
@@ -124,10 +129,12 @@ func RegisterUser(c *fiber.Ctx) error {
 
 		// Insert the new user into the database
 		ctx := context.Background()
-		_, err := collection.InsertOne(ctx, user)
+		result, err := collection.InsertOne(ctx, user)
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		fmt.Print("Inserted ID: ", result.InsertedID)
 
 		return c.JSON(fiber.Map{"status": "success", "message": "User created successfully"})
 	}
