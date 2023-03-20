@@ -22,7 +22,6 @@ import (
 func ConnectDBUsers(client *mongo.Client) (*mongo.Collection) {
 	// Get a handle to the "users" collection
 	collection := client.Database("eventeq").Collection("users")
-
 	return collection
 }
 
@@ -65,7 +64,6 @@ func LoginUser(c *fiber.Ctx) error {
 	client, _  := db.ConnectDB()
 	ctx := context.Background()
 	defer client.Disconnect(ctx)
-
 	collection := ConnectDBUsers(client)
 
 	// Define a filter to find the user with the given username and password
@@ -134,9 +132,162 @@ func RegisterUser(c *fiber.Ctx) error {
 			log.Fatal(err)
 		}
 
-		fmt.Print("Inserted ID: ", result.InsertedID)
+		fmt.Println("Inserted ID: ", result.InsertedID)
 
 		return c.JSON(fiber.Map{"status": "success", "message": "User created successfully"})
 	}
+}
+
+/*
+	* GET /api/user/:id
+	* Get a user by id
+*/
+func GetUserById(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	client, _  := db.ConnectDB()
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	collection := ConnectDBUsers(client)
+
+	// Define a filter to find the user with the given id
+	filter := bson.M{"_id": id}
+
+	// Count the number of documents that match the filter
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	count, _ := collection.CountDocuments(ctx, filter)
+
+	// Return true if a user with the given id was found, false otherwise
+	if (count > 0) {
+		var user model.User
+		collection.FindOne(ctx, filter).Decode(&user)
+		return c.JSON(user)
+	}
+	return c.JSON(fiber.Map{"status": "failed", "message": "User not found"})
+}
+
+/*
+	* PUT /api/user/:id
+	* Update a user by id
+*/
+func UpdateUserById(c *fiber.Ctx) error {
+	// Email is unique, so we can use it to find the user
+	email := c.Params("email")
+
+	first_name := c.FormValue("first_name")
+	last_name := c.FormValue("last_name")
+	username := c.FormValue("username")
+
+	client, _  := db.ConnectDB()
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	collection := ConnectDBUsers(client)
+
+	// Define a filter to find the user with the given email
+	filter := bson.M{"email": email}
+
+	// Count the number of documents that match the filter
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	count, _ := collection.CountDocuments(ctx, filter)
+
+	// Return true if a user with the given id was found, false otherwise
+	if (count > 0) {
+		// Update the user with the given id
+		update := bson.M{"$set": bson.M{
+			"first_name": first_name,
+			"last_name": last_name,
+			"username": username,
+		}}
+
+		// Update the user in the database
+		_, err := collection.UpdateOne(ctx, filter, update)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return c.JSON(fiber.Map{"status": "success", "message": "User updated successfully"})
+	}
+	return c.JSON(fiber.Map{"status": "failed", "message": "User not found"})
+}
+
+/*
+	* PUT /api/user/:id/password
+	* Update a user password by id
+*/
+func UpdateUserPasswordById(c *fiber.Ctx) error {
+	// Email is unique, so we can use it to find the user
+	email := c.Params("email")
+
+	password := c.FormValue("password")
+
+	// hash the password in sha256
+	password = fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
+
+	client, _  := db.ConnectDB()
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	collection := ConnectDBUsers(client)
+
+	// Define a filter to find the user with the given id
+	filter := bson.M{"email": email}
+
+	// Count the number of documents that match the filter
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	count, _ := collection.CountDocuments(ctx, filter)
+
+	// Return true if a user with the given id was found, false otherwise
+	if (count > 0) {
+		update := bson.M{"$set": bson.M{
+			"password": password,
+		}}
+
+		// Update the user in the database
+		_, err := collection.UpdateOne(ctx, filter, update)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		return c.JSON(fiber.Map{"status": "success", "message": "User password updated successfully"})
+	}
+	return c.JSON(fiber.Map{"status": "failed", "message": "User not found"})
+}
+
+/*
+
+	* DELETE /api/user/:id
+	* Delete a user by id
+*/
+func DeleteUserById(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	client, _  := db.ConnectDB()
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	collection := ConnectDBUsers(client)
+
+	// Define a filter to find the user with the given id
+	filter := bson.M{"_id": id}
+
+	// Count the number of documents that match the filter
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	count, _ := collection.CountDocuments(ctx, filter)
+
+	// Return true if a user with the given id was found, false otherwise
+	if (count > 0) {
+		// Delete the user with the given id
+		_, err := collection.DeleteOne(ctx, filter)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return c.JSON(fiber.Map{"status": "success", "message": "User deleted successfully"})
+	}
+	return c.JSON(fiber.Map{"status": "failed", "message": "User not found"})
 }
 
