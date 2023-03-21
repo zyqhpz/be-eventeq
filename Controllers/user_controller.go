@@ -116,6 +116,13 @@ func RegisterUser(c *fiber.Ctx) error {
 	} else if (countEmail > 0) {
 		return c.JSON(fiber.Map{"status": "failed email", "message": "Email already exists"})
 	} else {
+
+		// get current time for created_at and updated_at
+		currentTime := time.Now()
+
+		// convert to GMT +8
+		currentTime = currentTime.Add(8 * time.Hour)
+
 		// Create a new user
 		user := model.User{
 			FirstName: first_name,
@@ -123,6 +130,8 @@ func RegisterUser(c *fiber.Ctx) error {
 			Username: username,
 			Password: password,
 			Email: email,
+			CreatedAt: currentTime,
+			UpdatedAt: currentTime,
 		}
 
 		// Insert the new user into the database
@@ -196,11 +205,19 @@ func UpdateUserById(c *fiber.Ctx) error {
 
 	// Return true if a user with the given id was found, false otherwise
 	if (count > 0) {
+
+		// get current time for created_at and updated_at
+		currentTime := time.Now()
+
+		// convert to GMT +8
+		currentTime = currentTime.Add(8 * time.Hour)
+
 		// Update the user with the given id
 		update := bson.M{"$set": bson.M{
 			"first_name": first_name,
 			"last_name": last_name,
 			"username": username,
+			"updated_at": currentTime,
 		}}
 
 		// Update the user in the database
@@ -242,8 +259,16 @@ func UpdateUserPasswordById(c *fiber.Ctx) error {
 
 	// Return true if a user with the given id was found, false otherwise
 	if (count > 0) {
+
+		// get current time for created_at and updated_at
+		currentTime := time.Now()
+
+		// convert to GMT +8
+		currentTime = currentTime.Add(8 * time.Hour)
+
 		update := bson.M{"$set": bson.M{
 			"password": password,
+			"updated_at": currentTime,
 		}}
 
 		// Update the user in the database
