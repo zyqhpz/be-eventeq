@@ -9,6 +9,7 @@ import (
 
 	db "github.com/zyqhpz/be-eventeq/Database"
 	model "github.com/zyqhpz/be-eventeq/Models"
+	"github.com/zyqhpz/be-eventeq/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -117,12 +118,6 @@ func RegisterUser(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "failed email", "message": "Email already exists"})
 	} else {
 
-		// get current time for created_at and updated_at
-		currentTime := time.Now()
-
-		// convert to GMT +8
-		currentTime = currentTime.Add(8 * time.Hour)
-
 		// Create a new user
 		user := model.User{
 			FirstName: first_name,
@@ -130,8 +125,8 @@ func RegisterUser(c *fiber.Ctx) error {
 			Username: username,
 			Password: password,
 			Email: email,
-			CreatedAt: currentTime,
-			UpdatedAt: currentTime,
+			CreatedAt: util.GetCurrentTime(),
+			UpdatedAt: util.GetCurrentTime(),
 		}
 
 		// Insert the new user into the database
@@ -205,19 +200,12 @@ func UpdateUserById(c *fiber.Ctx) error {
 
 	// Return true if a user with the given id was found, false otherwise
 	if (count > 0) {
-
-		// get current time for created_at and updated_at
-		currentTime := time.Now()
-
-		// convert to GMT +8
-		currentTime = currentTime.Add(8 * time.Hour)
-
 		// Update the user with the given id
 		update := bson.M{"$set": bson.M{
 			"first_name": first_name,
 			"last_name": last_name,
 			"username": username,
-			"updated_at": currentTime,
+			"updated_at": util.GetCurrentTime(),
 		}}
 
 		// Update the user in the database
@@ -259,16 +247,9 @@ func UpdateUserPasswordById(c *fiber.Ctx) error {
 
 	// Return true if a user with the given id was found, false otherwise
 	if (count > 0) {
-
-		// get current time for created_at and updated_at
-		currentTime := time.Now()
-
-		// convert to GMT +8
-		currentTime = currentTime.Add(8 * time.Hour)
-
 		update := bson.M{"$set": bson.M{
 			"password": password,
-			"updated_at": currentTime,
+			"updated_at": util.GetCurrentTime(),
 		}}
 
 		// Update the user in the database
