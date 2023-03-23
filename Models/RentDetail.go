@@ -5,13 +5,13 @@ import (
 )
 
 type RentDetail struct {
-	ID        uint      `json:"id"`
-	RentID    uint      `json:"rent_id"`
-	ItemID    uint      `json:"item_id"`
-	Quantity  int       `json:"quantity"`
-	Price     int       `json:"price"`
-	DateStart time.Time `json:"date_start"`
-	DateEnd   time.Time `json:"date_end"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint      `bson:"id"`
+	RentID    uint      `bson:"rent_id"`
+	ItemID    uint      `bson:"item_id"`
+	Quantity  int       `bson:"quantity"`
+	Price     int       `bson:"price"`
+	DateStart time.Time `bson:"date_start"`
+	DateEnd   time.Time `bson:"date_end"`
+	CreatedAt time.Time `bson:"created_at"`
+	UpdatedAt time.Time `bson:"updated_at"`
 }

@@ -5,23 +5,23 @@ import (
 )
 
 type Item struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Type        int    `json:"type"`
-	Price       int    `json:"price"`
-	Stock       int    `json:"stock"`
+	ID          uint   `bson:"id"`
+	Name        string `bson:"name"`
+	Description string `bson:"description"`
+	Type        int    `bson:"type"`
+	Price       int    `bson:"price"`
+	Stock       int    `bson:"stock"`
 
-	// Relationship
-	OwnedBy User `json:"owned_by" gorm:"foreignKey:UserID"`
+	// Relationship OwnedBy to User id
+	OwnedBy 	int `bson:"owned_by"`
 
 	// Timestamp
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt 	time.Time `bson:"created_at"`
+	UpdatedAt 	time.Time `bson:"updated_at"`
 
 	// Image
-	Image string `json:"image"`
+	Image 		string `bson:"image"`
 
 	// Status
-	Status int `json:"status"`
+	Status 		int `bson:"status"`
 }

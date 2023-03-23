@@ -5,11 +5,11 @@ import (
 )
 
 type Event struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	State       string `json:"state"`
-	DateStart   time.Time `json:"date_start"`
-	DateEnd     time.Time `json:"date_end"`
-	OrganizedBy int    `json:"organized_by"`
+	ID          uint   		`bson:"id"`
+	Name        string 		`bson:"name"`
+	Description string 		`bson:"description"`
+	State       string 		`bson:"state"`
+	DateStart   time.Time 	`bson:"date_start"`
+	DateEnd     time.Time 	`bson:"date_end"`
+	OrganizedBy int    		`bson:"organized_by"`
 }

@@ -16,6 +16,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type LoginUserRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 /*
 	* Connect to the "users" collection
 	@param client *mongo.Client
@@ -59,8 +64,15 @@ func GetUsers(c *fiber.Ctx) error {
 	* Login a user
 */
 func LoginUser(c *fiber.Ctx) error {
-	username := c.FormValue("username")
-	password := c.FormValue("password")
+	
+	req := new(LoginUserRequest)
+	if err := c.BodyParser(req); err != nil {
+		log.Println("Error parsing JSON request body:", err)
+		return c.SendStatus(fiber.StatusBadRequest)
+	}
+
+	email := req.Email
+	password := req.Password
 
 	client, _  := db.ConnectDB()
 	ctx := context.Background()
@@ -68,7 +80,7 @@ func LoginUser(c *fiber.Ctx) error {
 	collection := ConnectDBUsers(client)
 
 	// Define a filter to find the user with the given username and password
-    filter := bson.M{"username": username, "password": password}
+    filter := bson.M{"email": email, "password": fmt.Sprintf("%x", sha256.Sum256([]byte(password)))}
 
     // Count the number of documents that match the filter
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -77,11 +89,11 @@ func LoginUser(c *fiber.Ctx) error {
 
     // Return true if a user with the given username and password was found, false otherwise
     if (count > 0) {
-		fmt.Println("Username: ", username, "Login Success")
-		return c.JSON(fiber.Map{"status": "success", "message": "Login Success " + username})
+		log.Println("Email: ", email, "Login Success")
+		return c.JSON(fiber.Map{"status": "success", "message": "Login Success " + email})
 	}
-	fmt.Println("Username: ", username, "Login Failed")
-	return c.JSON(fiber.Map{"status": "failed", "message": "Login Failed " + username})
+	log.Println("Email: ", email, "Login Failed")
+	return c.JSON(fiber.Map{"status": "failed", "message": "Login Failed " + email})
 }
 
 /*
