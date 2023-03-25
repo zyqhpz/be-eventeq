@@ -37,6 +37,12 @@ func ConnectDBUsers(client *mongo.Client) (*mongo.Collection) {
 */
 func GetUsers(c *fiber.Ctx) error {
 	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+
 	ctx := context.Background()
 	defer client.Disconnect(ctx)
 	collectionUsers := ConnectDBUsers(client)
@@ -74,7 +80,12 @@ func LoginUser(c *fiber.Ctx) error {
 	email := req.Email
 	password := req.Password
 
-	client, _  := db.ConnectDB()
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	
 	ctx := context.Background()
 	defer client.Disconnect(ctx)
 	collection := ConnectDBUsers(client)
