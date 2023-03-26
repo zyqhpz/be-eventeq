@@ -14,6 +14,8 @@ type User struct {
 	Password  string             	`bson:"password"`
 	Email     string             	`bson:"email"`
 
+	Location  Location           	`bson:"location"`
+
 	// Timestamp
 	CreatedAt time.Time 			`bson:"created_at"`
 	UpdatedAt time.Time 			`bson:"updated_at"`

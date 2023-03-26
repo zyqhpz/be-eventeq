@@ -42,7 +42,6 @@ func GetUsers(c *fiber.Ctx) error {
 		log.Fatal(err)
 	}
 
-
 	ctx := context.Background()
 	defer client.Disconnect(ctx)
 	collectionUsers := ConnectDBUsers(client)
