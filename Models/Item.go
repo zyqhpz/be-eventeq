@@ -16,19 +16,19 @@ type Item struct {
 
 	// Relationship OwnedBy to User id
 	OwnedBy 	primitive.ObjectID	`bson:"owned_by"`
+	
+	// Image
+	Image 		map[string]string			`bson:"image"`
+	
+	/* Status
+	0 = Disabled
+	1 = Available
+	2 = Rented
+	3 = Reserved
+	*/
+	Status 		int32 				`bson:"status"`
 
 	// Timestamp
 	CreatedAt 	time.Time 			`bson:"created_at"`
 	UpdatedAt 	time.Time 			`bson:"updated_at"`
-
-	// Image
-	Image 		[]string 			`bson:"image"`
-
-	/* Status
-		0 = Disabled
-		1 = Available
-		2 = Rented
-		3 = Reserved
-	*/
-	Status 		int32 				`bson:"status"`
 }

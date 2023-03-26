@@ -24,12 +24,15 @@ func setupRoutes(app *fiber.App) {
 		return c.SendString("Hello, World!")
 	})
 	
+	/* User */
 	app.Get("/api/user", controller.GetUsers).Name("user.get")
-
 	app.Post("/api/user/login/*", controller.LoginUser).Name("user.login")
 	app.Post("/api/user/register/*", controller.RegisterUser).Name("user.register")
 	app.Put("/api/user/update/:email", controller.UpdateUserById).Name("user.update")
 	app.Put("/api/user/update/:email/password", controller.UpdateUserPasswordById).Name("user.updatePassword")
+
+	/* Item */
+	app.Get("/api/item", controller.GetItems).Name("item.get")
 
 	app.Get("/api/planet", GetPlanets).Name("planet.get")
 
