@@ -33,6 +33,8 @@ func setupRoutes(app *fiber.App) {
 
 	/* Item */
 	app.Get("/api/item", controller.GetItems).Name("item.get")
+	app.Post("/api/item/create", controller.AddItem).Name("item.create")
+	app.Get("/api/item/:id", controller.GetItemImageById).Name("item.getImage")
 
 	app.Get("/api/planet", GetPlanets).Name("planet.get")
 

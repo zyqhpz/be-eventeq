@@ -18,7 +18,7 @@ type Item struct {
 	OwnedBy 	primitive.ObjectID	`bson:"owned_by"`
 	
 	// Image
-	Image 		map[string]string			`bson:"image"`
+	Image 		[]string			`bson:"image"`
 	
 	/* Status
 	0 = Disabled

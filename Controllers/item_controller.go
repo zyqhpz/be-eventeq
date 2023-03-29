@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
-	model "github.com/zyqhpz/be-eventeq/Models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -67,9 +67,9 @@ func GetItems(c *fiber.Ctx) error {
 	defer cursor.Close(ctx)
 
 	// Iterate through the documents and print them
-	var items []model.Item
+	var items []CreateNewItemRequest
 	for cursor.Next(ctx) {
-		var item model.Item
+		var item CreateNewItemRequest
 		if err := cursor.Decode(&item); err != nil {
 			log.Fatal(err)
 		}
@@ -77,6 +77,63 @@ func GetItems(c *fiber.Ctx) error {
 	}
 	return c.JSON(items)
 }
+
+/*
+	* GET /api/item/:id
+	* Get an item by id
+*/
+func GetItemImageById(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+	db := client.Database("eventeq")
+	bucket, err := gridfs.NewBucket(db, options.GridFSBucket().SetName("images"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// downloadStream, err := bucket.OpenDownloadStreamByName(objectID.Hex())
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// defer downloadStream.Close()
+
+	// // Copy the file to the response
+	// if _, err = io.Copy(c, downloadStream); err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// return nil
+
+		// Open a download stream for the file with the given ID
+	downloadStream, err := bucket.OpenDownloadStream(objectID)
+	if err != nil {
+		return c.Status(404).SendString("Image not found")
+	}
+	defer downloadStream.Close()
+
+	// Read the contents of the file into a byte buffer
+	buffer := new(bytes.Buffer)
+	_, err = io.Copy(buffer, downloadStream)
+	if err != nil {
+		return c.Status(500).SendString("Error reading image data")
+	}
+
+	// Return the image data
+	return c.Send(buffer.Bytes())
+}
+
 
 /*
 	* POST /api/item/add
