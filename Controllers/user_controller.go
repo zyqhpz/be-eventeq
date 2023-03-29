@@ -21,6 +21,13 @@ type LoginUserRequest struct {
 	Password string `json:"password"`
 }
 
+type RegisterUserRequest struct {
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Password  string `json:"password"`
+	Email     string `json:"email"`
+}
+
 /*
 	* Connect to the "users" collection
 	@param client *mongo.Client
@@ -111,11 +118,17 @@ func LoginUser(c *fiber.Ctx) error {
 	* Register a new user
 */
 func RegisterUser(c *fiber.Ctx) error {
-	first_name := c.FormValue("first_name")
-	last_name := c.FormValue("last_name")
-	username := c.FormValue("username")
-	password := c.FormValue("password")
-	email := c.FormValue("email")
+
+	req := new(RegisterUserRequest)
+	if err := c.BodyParser(req); err != nil {
+		log.Println("Error parsing JSON request body:", err)
+		return c.SendStatus(fiber.StatusBadRequest)
+	}
+
+	firstName:= req.FirstName
+	lastName := req.LastName
+	email := req.Email
+	password := req.Password
 
 	// hash the password in sha256
 	password = fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
@@ -125,26 +138,21 @@ func RegisterUser(c *fiber.Ctx) error {
 	collection := ConnectDBUsers(client)
 
 	// Define a filter to find the user with the given username and email, if any exist return error message
-	filterUsername := bson.M{"username": username}
 	filterEmail := bson.M{"email": email}
 
 	// Count the number of documents that match the filter
 	ctx := context.Background()
-	countUsername, _ := collection.CountDocuments(ctx, filterUsername)
 	countEmail, _ := collection.CountDocuments(ctx, filterEmail)
 
 	// Return error if a user with the given username was found
-	if (countUsername > 0) {
-		return c.JSON(fiber.Map{"status": "failed username", "message": "Username already exists"})
-	} else if (countEmail > 0) {
+	if (countEmail > 0) {
 		return c.JSON(fiber.Map{"status": "failed email", "message": "Email already exists"})
 	} else {
 
 		// Create a new user
 		user := model.User{
-			FirstName: first_name,
-			LastName: last_name,
-			Username: username,
+			FirstName: firstName,
+			LastName: lastName,
 			Password: password,
 			Email: email,
 			CreatedAt: util.GetCurrentTime(),
