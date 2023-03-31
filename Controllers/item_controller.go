@@ -27,6 +27,17 @@ type CreateNewItemRequest struct {
 	CreatedAt time.Time `bson:"created_at"`
 	UpdatedAt time.Time `bson:"updated_at"`
 }
+
+type ItemDetailsRequest struct {
+	Name string `bson:"name"`
+	Description string `bson:"description"`
+	Price float64 `bson:"price"`
+	Quantity int	`bson:"quantity"`
+	Image primitive.ObjectID `bson:"image"`
+	CreatedAt time.Time `bson:"created_at"`
+	UpdatedAt time.Time `bson:"updated_at"`
+}
+
 // type CreateNewItemRequest struct {
 // 	Name string `json:"name"`
 // 	Description string `json:"description"`
@@ -81,6 +92,56 @@ func GetItems(c *fiber.Ctx) error {
 /*
 	* GET /api/item/:id
 	* Get an item by id
+*/
+func GetItemById(c *fiber.Ctx) error {
+	// Retrieve the `id` parameter from the request URL
+	idParam := c.Params("id")
+
+	// Convert the `id` parameter to a MongoDB `ObjectID`
+	id, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		// Return an error response if the `id` parameter is not a valid `ObjectID`
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid item ID",
+		})
+	}
+
+	// Connect to the MongoDB database
+	client, err := db.ConnectDB()
+	if err != nil {
+		// Return an error response if the database connection fails
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to connect to database",
+		})
+	}
+	defer client.Disconnect(context.Background())
+
+	// Select the `items` collection from the database
+	itemsCollection := ConnectDBItems(client)
+
+	// Query for the `ItemDetailsRequest` document with the specified `id`
+	var item ItemDetailsRequest
+	err = itemsCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&item)
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Item not found",
+			})
+		}
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to get item from database",
+		})
+	}
+
+	// Return the retrieved `ItemDetailsRequest` document as a JSON response
+	return c.JSON(item)
+}
+
+/*
+	* GET /api/item/image/:id
+	* Get an image item by id
 */
 func GetItemImageById(c *fiber.Ctx) error {
 	id := c.Params("id")
