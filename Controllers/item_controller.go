@@ -29,6 +29,7 @@ type CreateNewItemRequest struct {
 }
 
 type ItemDetailsRequest struct {
+	ID primitive.ObjectID `bson:"_id"`
 	Name string `bson:"name"`
 	Description string `bson:"description"`
 	Price float64 `bson:"price"`
@@ -78,9 +79,9 @@ func GetItems(c *fiber.Ctx) error {
 	defer cursor.Close(ctx)
 
 	// Iterate through the documents and print them
-	var items []CreateNewItemRequest
+	var items []ItemDetailsRequest
 	for cursor.Next(ctx) {
-		var item CreateNewItemRequest
+		var item ItemDetailsRequest
 		if err := cursor.Decode(&item); err != nil {
 			log.Fatal(err)
 		}
@@ -163,21 +164,7 @@ func GetItemImageById(c *fiber.Ctx) error {
 		log.Fatal(err)
 	}
 
-	// downloadStream, err := bucket.OpenDownloadStreamByName(objectID.Hex())
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// defer downloadStream.Close()
-
-	// // Copy the file to the response
-	// if _, err = io.Copy(c, downloadStream); err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// return nil
-
-		// Open a download stream for the file with the given ID
+	// Open a download stream for the file with the given ID
 	downloadStream, err := bucket.OpenDownloadStream(objectID)
 	if err != nil {
 		return c.Status(404).SendString("Image not found")
