@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	controller "github.com/zyqhpz/be-eventeq/Controllers"
 	db "github.com/zyqhpz/be-eventeq/Database"
@@ -93,8 +94,16 @@ func main() {
 		// EnablePrintRoutes: true,
 		// DisableStartupMessage: true,
 	})
+
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		port = "8080"
+	}
+
 	
 	app.Use(cors.New())
 	setupRoutes(app)
-    app.Listen(":8080")
+	log.Fatal(app.Listen("0.0.0.0:" + port))
+    // app.Listen(":8080")
 }
