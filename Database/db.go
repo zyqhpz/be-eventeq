@@ -6,24 +6,18 @@ import (
 	"os"
 	"time"
 
-	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func ConnectDB() (*mongo.Client, error) {
-
-    // Load the .env file
-    err := godotenv.Load()
-    if err != nil {
-        log.Fatal("Error loading .env file")
+    mongodbPassword := os.Getenv("MONGODB_PASSWORD")
+    if mongodbPassword == "" {
+        log.Fatal("MONGODB_PASSWORD is not set")
     }
 
-    // Get the value of the MY_STRING key
-    password := os.Getenv("MONGODB_PASSWORD")
-
     // Set client options
-    clientOptions := options.Client().ApplyURI("mongodb+srv://zyqhpz:"+password+"@eventeq.obgaljj.mongodb.net/?retryWrites=true&w=majority")
+    clientOptions := options.Client().ApplyURI("mongodb+srv://zyqhpz:"+mongodbPassword+"@eventeq.obgaljj.mongodb.net/?retryWrites=true&w=majority")
 
     // Connect to MongoDB Atlas
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
