@@ -12,9 +12,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/gofiber/fiber/v2/middleware/cors"
-
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 var client *mongo.Client
@@ -27,6 +26,10 @@ func setupRoutes(app *fiber.App) {
 	/* User */
 	app.Get("/api/user", controller.GetUsers).Name("user.get")
 	app.Post("/api/user/login/*", controller.LoginUser).Name("user.login")
+
+	app.Get("/api/user/auth/", controller.LoginUserAuth).Name("user.login.auth")
+	app.Post("/api/user/logout/", controller.LogoutUser).Name("user.logout")
+
 	app.Post("/api/user/register/*", controller.RegisterUser).Name("user.register")
 	app.Put("/api/user/update/:email", controller.UpdateUserById).Name("user.update")
 	app.Put("/api/user/update/:email/password", controller.UpdateUserPasswordById).Name("user.updatePassword")
@@ -94,7 +97,11 @@ func main() {
 		// DisableStartupMessage: true,
 	})
 	
-	app.Use(cors.New())
+	app.Use(cors.New(
+		cors.Config{
+			AllowCredentials: true,
+		},
+	))
 	setupRoutes(app)
     app.Listen(":8080")
 }
