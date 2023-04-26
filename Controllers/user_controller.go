@@ -38,7 +38,7 @@ func ConnectDBUsers(client *mongo.Client) (*mongo.Collection) {
 }
 
 /*
-	* GET /api/users
+	* GET /api/user
 	* Get all users
 */
 func GetUsers(c *fiber.Ctx) error {
@@ -104,7 +104,7 @@ func LoginUser(c *fiber.Ctx) error {
     filter := bson.M{"email": email, "password": fmt.Sprintf("%x", sha256.Sum256([]byte(password)))}
 
     // Count the number of documents that match the filter
-    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
     count, _ := collection.CountDocuments(ctx, filter)
 
