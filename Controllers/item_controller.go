@@ -39,14 +39,6 @@ type ItemDetailsRequest struct {
 	UpdatedAt time.Time `bson:"updated_at"`
 }
 
-// type CreateNewItemRequest struct {
-// 	Name string `json:"name"`
-// 	Description string `json:"description"`
-// 	Price float64 `json:"price"`
-// 	Quantity int `json:"quantity"`
-// 	Image string `json:"image"`
-// }
-
 /*
 	* Connect to the "items" collection
 	@param client *mongo.Client
@@ -62,6 +54,19 @@ func ConnectDBItems(client *mongo.Client) (*mongo.Collection) {
 	* Get all items
 */
 func GetItems(c *fiber.Ctx) error {
+
+	type Item struct {
+		ID primitive.ObjectID `bson:"_id"`
+		Name string `bson:"name"`
+		Description string `bson:"description"`
+		Price float64 `bson:"price"`
+		Quantity int	`bson:"quantity"`
+		Image primitive.ObjectID `bson:"image"`
+		OwnedBy primitive.ObjectID `bson:"ownedBy"`
+		CreatedAt time.Time `bson:"created_at"`
+		UpdatedAt time.Time `bson:"updated_at"`
+	}
+
 	client, err  := db.ConnectDB()
 
 	if err != nil {
@@ -79,9 +84,9 @@ func GetItems(c *fiber.Ctx) error {
 	defer cursor.Close(ctx)
 
 	// Iterate through the documents and print them
-	var items []ItemDetailsRequest
+	var items []Item
 	for cursor.Next(ctx) {
-		var item ItemDetailsRequest
+		var item Item
 		if err := cursor.Decode(&item); err != nil {
 			log.Fatal(err)
 		}
@@ -195,11 +200,13 @@ func AddItem(c *fiber.Ctx) error {
 	}
 
 	// Get all files from form
-
 	name := form.Value["name"][0]
 	description := form.Value["description"][0]
 	price, _ := strconv.ParseFloat(form.Value["price"][0], 64)
 	quantity, _ := strconv.Atoi(form.Value["quantity"][0])
+	id := form.Value["userID"][0]
+	
+	userID, err := primitive.ObjectIDFromHex(id)
 
 	file, err := c.FormFile("image")
 	if err != nil {
@@ -239,19 +246,27 @@ func AddItem(c *fiber.Ctx) error {
 		return err
 	}
 
+	type Item struct {
+		Name string `bson:"name"`
+		Description string `bson:"description"`
+		Price float64 `bson:"price"`
+		Quantity int	`bson:"quantity"`
+		Image primitive.ObjectID `bson:"image"`
+		OwnedBy primitive.ObjectID `bson:"ownedBy"`
+		CreatedAt time.Time `bson:"created_at"`
+		UpdatedAt time.Time `bson:"updated_at"`
+	}
 
-	// collectionItems := ConnectDBItems(client)
-
-	item := CreateNewItemRequest{
+	item := Item{
 		Name: name,
 		Description: description,
 		Price: price,
 		Quantity: quantity,
 		Image: uploadStream.FileID.(primitive.ObjectID),
+		OwnedBy: userID,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-
 
 	// Insert new item into database
 	collectionItems := db.Collection("items")
@@ -260,24 +275,9 @@ func AddItem(c *fiber.Ctx) error {
 		return err
 	}
 
-
-	// var item model.Item
-	// if err := c.BodyParser(&item); err != nil {
-	// 	return err
-	// }
-
-	// image := 
-
-	// // Insert a single document
-	// insertResult, err := collectionItems.InsertOne(ctx, item)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// return c.JSON(insertResult)
-
-		// Return response
+	// Return response
 	return c.JSON(fiber.Map{
+		"status": "success",
 		"message": "Item created successfully",
 		"item_id": res.InsertedID,
 	})
