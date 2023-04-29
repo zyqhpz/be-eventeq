@@ -3,8 +3,11 @@ package api
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -14,6 +17,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/gridfs"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	util "github.com/zyqhpz/be-eventeq/util"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -55,13 +60,17 @@ func ConnectDBItems(client *mongo.Client) (*mongo.Collection) {
 */
 func GetItems(c *fiber.Ctx) error {
 
+	type FileIDs struct {
+		ID []primitive.ObjectID `bson:"_id"`
+	}
+
 	type Item struct {
 		ID primitive.ObjectID `bson:"_id"`
 		Name string `bson:"name"`
 		Description string `bson:"description"`
 		Price float64 `bson:"price"`
 		Quantity int	`bson:"quantity"`
-		Image primitive.ObjectID `bson:"image"`
+		Image []primitive.ObjectID `bson:"image"`
 		OwnedBy primitive.ObjectID `bson:"ownedBy"`
 		CreatedAt time.Time `bson:"createdAt"`
 		UpdatedAt time.Time `bson:"updatedAt"`
@@ -285,6 +294,9 @@ func AddItem(c *fiber.Ctx) error {
 		return err
 	}
 
+	log.Println(form)
+	log.Println(file)
+
 	// Open file
 	src, err := file.Open()
 	if err != nil {
@@ -318,12 +330,22 @@ func AddItem(c *fiber.Ctx) error {
 		return err
 	}
 
+	type Images struct {
+		ID primitive.ObjectID `bson:"_id"`
+	}
+
+	// create an array to store Images id
+	var images []Images
+
+	// append the image id to the array
+	images = append(images, Images{ID: uploadStream.FileID.(primitive.ObjectID)})
+
 	type Item struct {
 		Name string `bson:"name"`
 		Description string `bson:"description"`
 		Price float64 `bson:"price"`
 		Quantity int	`bson:"quantity"`
-		Image primitive.ObjectID `bson:"image"`
+		Images []primitive.ObjectID `bson:"images"`
 		OwnedBy primitive.ObjectID `bson:"ownedBy"`
 		CreatedAt time.Time `bson:"created_at"`
 		UpdatedAt time.Time `bson:"updated_at"`
@@ -334,10 +356,10 @@ func AddItem(c *fiber.Ctx) error {
 		Description: description,
 		Price: price,
 		Quantity: quantity,
-		Image: uploadStream.FileID.(primitive.ObjectID),
+		Images: images,
 		OwnedBy: userID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: util.GetCurrentTime(),
+		UpdatedAt: util.GetCurrentTime(),
 	}
 
 	// Insert new item into database
@@ -353,4 +375,199 @@ func AddItem(c *fiber.Ctx) error {
 		"message": "Item created successfully",
 		"item_id": res.InsertedID,
 	})
+}
+
+/*
+	* POST /api/item/add
+	* Add an item
+*/
+func AddItemImages(c *fiber.Ctx) error {
+
+	// Parse the multipart form data
+	form, err := c.MultipartForm()
+	if err != nil {
+		return err
+	}
+
+	count, _ := strconv.Atoi(form.Value["count"][0])
+
+	// make files array
+	var files[] *multipart.FileHeader
+
+	client, err  := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	db := client.Database("eventeq")
+	bucket, err := gridfs.NewBucket(db, options.GridFSBucket().SetName("images"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	for i := 0; i < count; i++ {
+		imageCount := "images-" + strconv.Itoa(i)
+		// log.Println(imageCount)
+		
+		file, err := c.FormFile(imageCount)
+		if err != nil {
+			// return err
+		}
+
+		log.Println(file.Filename)
+
+		// log.Println(form.File[imageCount])
+
+		files = append(files, file)
+
+		// log.Println(file)
+	}
+
+	// // Upload each file to the GridFS
+	var fileIDs []primitive.ObjectID
+	for _, file := range files {
+
+		// Open the file
+		src, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+
+		// Create a new upload stream
+		uploadStream, err := bucket.OpenUploadStream(file.Filename)
+		if err != nil {
+			return err
+		}
+		defer uploadStream.Close()
+
+		// Copy the file data to the upload stream
+		_, err = io.Copy(uploadStream, src)
+		if err != nil {
+			return err
+		}
+
+		// Get the ID of the uploaded file
+		fileID := uploadStream.FileID
+		fileIDs = append(fileIDs, fileID.(primitive.ObjectID))
+
+		log.Println("file " + file.Filename + " uploaded successfully")
+	}
+
+	type FileIDs struct {
+		ID []primitive.ObjectID `bson:"_id"`
+	}
+
+	type Item struct {
+		ID primitive.ObjectID `bson:"_id"`
+		Images []primitive.ObjectID `bson:"images"`
+		CreatedAt time.Time `bson:"created_at"`
+		UpdatedAt time.Time `bson:"updated_at"`
+	}
+
+	
+	item := Item{
+		ID: primitive.NewObjectID(),
+		Images: fileIDs,
+		CreatedAt: util.GetCurrentTime(),
+		UpdatedAt: util.GetCurrentTime(),
+	}
+
+	// // // Insert new item into database
+	collectionItems := db.Collection("items")
+	res, err := collectionItems.InsertOne(context.Background(), item)
+	if err != nil {
+		return err
+	}
+
+	log.Println("images uploaded successfully")
+
+	// Return response
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"message": "Item created successfully",
+		"item_id": res.InsertedID,
+		"images": fileIDs,
+	})
+}
+
+func ReadBlobs(c *fiber.Ctx) error {
+
+		// Parse the multipart form data
+	form, err := c.MultipartForm()
+	if err != nil {
+		return err
+	}
+
+		// Get the blob URLs from the form data
+	blobs := form.Value["images"]
+
+	log.Println(blobs)
+
+
+	// Create a new multipart message
+	buf := new(bytes.Buffer)
+	writer := multipart.NewWriter(buf)
+
+	// Iterate over the blobs and add each as a new file part in the multipart message
+	for i, blob := range blobs {
+		// Create a new request with the blob URL as the body
+		req, err := http.NewRequest(http.MethodGet, blob, nil)
+		if err != nil {
+			return err
+		}
+
+		// Add a Content-Disposition header to the request with the filename
+		filename := fmt.Sprintf("image%d.jpg", i)
+		req.Header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="images"; filename="%s"`, filename))
+
+		// Send the request and read the response body as a multipart.FileHeader
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+
+		// Add the file part to the multipart message
+		part, err := writer.CreateFormFile("images", filename)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(part, res.Body)
+		if err != nil {
+			return err
+		} 
+	}
+
+	// Close the multipart message and set the Content-Type header
+	err = writer.Close()
+	if err != nil {
+		return err
+	}
+
+	// Create a new request with the multipart message as the body
+	req, err := http.NewRequest(http.MethodPost, "localhost:8080/api/item/createImage", buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Send the request to the server
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+defer res.Body.Close()
+
+// Return response
+return c.JSON(fiber.Map{
+	"status": "success",
+	"message": "Item created successfully",
+	// "item_id": res.InsertedID,
+	// "images": fileIDs,
+})
 }
