@@ -13,9 +13,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/gofiber/fiber/v2/middleware/cors"
-
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 var client *mongo.Client
@@ -28,6 +27,10 @@ func setupRoutes(app *fiber.App) {
 	/* User */
 	app.Get("/api/user", controller.GetUsers).Name("user.get")
 	app.Post("/api/user/login/*", controller.LoginUser).Name("user.login")
+
+	app.Get("/api/user/auth/", controller.LoginUserAuth).Name("user.login.auth")
+	app.Post("/api/user/logout/", controller.LogoutUser).Name("user.logout")
+
 	app.Post("/api/user/register/*", controller.RegisterUser).Name("user.register")
 	app.Put("/api/user/update/:email", controller.UpdateUserById).Name("user.update")
 	app.Put("/api/user/update/:email/password", controller.UpdateUserPasswordById).Name("user.updatePassword")
@@ -35,7 +38,8 @@ func setupRoutes(app *fiber.App) {
 	/* Item */
 	app.Get("/api/item", controller.GetItems).Name("item.get")
 	app.Post("/api/item/create", controller.AddItem).Name("item.create")
-	app.Get("/api/item/:id", controller.GetItemById).Name("item.getById")
+	app.Get("/api/item/:id", controller.GetItemById).Name("item.getItemById")
+	app.Get("/api/item/user/:id", controller.GetItemsByUserId).Name("item.getItemByUserId")
 	app.Get("/api/item/image/:id", controller.GetItemImageById).Name("item.getImage")
 
 	app.Get("/api/planet", GetPlanets).Name("planet.get")
@@ -51,7 +55,6 @@ type Planet struct {
 	HasRings  		bool             	`bson:"hasRings,omitempty"`
 	OrderFromSun  	int32              	`bson:"orderFromSun,omitempty"`
 }
-
 
 func GetPlanets(c *fiber.Ctx) error {
 	// Set client options
@@ -102,7 +105,11 @@ func main() {
 	}
 
 	
-	app.Use(cors.New())
+	app.Use(cors.New(
+		cors.Config{
+			AllowCredentials: true,
+		},
+	))
 	setupRoutes(app)
 	log.Fatal(app.Listen("0.0.0.0:" + port))
     // app.Listen(":8080")

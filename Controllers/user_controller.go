@@ -5,21 +5,20 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
 	model "github.com/zyqhpz/be-eventeq/Models"
 	"github.com/zyqhpz/be-eventeq/util"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/gofiber/fiber/v2"
 )
-
-type LoginUserRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
 
 type RegisterUserRequest struct {
 	FirstName string `json:"firstName"`
@@ -39,7 +38,7 @@ func ConnectDBUsers(client *mongo.Client) (*mongo.Collection) {
 }
 
 /*
-	* GET /api/users
+	* GET /api/user
 	* Get all users
 */
 func GetUsers(c *fiber.Ctx) error {
@@ -76,8 +75,13 @@ func GetUsers(c *fiber.Ctx) error {
 	* Login a user
 */
 func LoginUser(c *fiber.Ctx) error {
+
+	type body struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 	
-	req := new(LoginUserRequest)
+	req := new(body)
 	if err := c.BodyParser(req); err != nil {
 		log.Println("Error parsing JSON request body:", err)
 		return c.SendStatus(fiber.StatusBadRequest)
@@ -100,17 +104,116 @@ func LoginUser(c *fiber.Ctx) error {
     filter := bson.M{"email": email, "password": fmt.Sprintf("%x", sha256.Sum256([]byte(password)))}
 
     // Count the number of documents that match the filter
-    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
     count, _ := collection.CountDocuments(ctx, filter)
 
     // Return true if a user with the given username and password was found, false otherwise
     if (count > 0) {
+		// Get the user ID
+		var result struct {
+			ID primitive.ObjectID `bson:"_id"`
+		}
+
+		err := collection.FindOne(ctx, filter).Decode(&result)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"sub": result.ID,
+			"email": email,
+			"exp": time.Now().Add(time.Hour * 72).Unix(),
+		})
+
+		tokenString, err := token.SignedString([]byte("secret"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest)
+			return err
+		}
+
+		c.Cookie(&fiber.Cookie{
+			Name: "jwt",
+			Value: tokenString,
+			Expires: time.Now().Add(time.Hour * 72),
+			HTTPOnly: true,
+		})
+
 		log.Println("Email: ", email, "Login Success")
-		return c.JSON(fiber.Map{"status": "success", "message": "Login Success " + email})
+		return c.JSON(fiber.Map{
+			"status": "success",
+			"message": "Login Success " + email,
+		})
 	}
 	log.Println("Email: ", email, "Login Failed")
 	return c.JSON(fiber.Map{"status": "failed", "message": "Login Failed " + email})
+}
+
+/*
+	* GET /api/user/auth
+	* Check if user is logged in
+*/
+func LoginUserAuth(c *fiber.Ctx) error {
+	cookie := c.Cookies("jwt")
+
+	// fmt.Println(cookie)
+
+	if cookie == "" {
+		return c.JSON(fiber.Map{"status": "failed", "message": "Not logged in"})
+	}
+
+	token, err := jwt.ParseWithClaims(cookie, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte("secret"), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{"status": "failed", "message": "Not logged in"})
+	}
+
+	claims := token.Claims.(*jwt.MapClaims)
+
+	// var user model.User
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+	collection := ConnectDBUsers(client)
+
+	// convert to Hex
+	idHex, _ := primitive.ObjectIDFromHex((*claims)["sub"].(string))
+
+	// Define a filter to find the user
+	filter := bson.M{"_id": idHex}
+
+	var user model.User
+	result := collection.FindOne(ctx, filter).Decode(&user)
+
+	if result != nil {
+		c.JSON(http.StatusUnauthorized)
+		return c.JSON(fiber.Map{"status": "failed", "message": "Not logged in"})
+	}
+
+	return c.JSON(fiber.Map{"status": "success", "message": "Logged in", "user": user})
+}
+
+/*
+	* POST /api/user/logout
+	* Logout a user
+*/
+func LogoutUser(c *fiber.Ctx) error {
+	c.Cookie(&fiber.Cookie{
+		Name: "jwt",
+		Value: "",
+		Expires: time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+	})
+	return c.JSON(fiber.Map{"status": "success", "message": "Logged out"})
 }
 
 /*
