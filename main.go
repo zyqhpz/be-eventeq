@@ -41,6 +41,9 @@ func setupRoutes(app *fiber.App) {
 	app.Get("/api/item/user/:id", controller.GetItemsByUserId).Name("item.getItemByUserId")
 	app.Get("/api/item/image/:id", controller.GetItemImageById).Name("item.getImage")
 
+	/* Chat */
+	app.Get("/api/chat/getUsers/:id", controller.GetChatUsers).Name("chat.getUsers")
+
 	app.Get("/api/planet", GetPlanets).Name("planet.get")
 
 	app.Post("/user/test/", func(c *fiber.Ctx) error {
