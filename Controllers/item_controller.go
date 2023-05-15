@@ -202,19 +202,6 @@ func GetItemById(c *fiber.Ctx) error {
 	// Select the `items` collection from the database
 	itemsCollection := ConnectDBItems(client)
 
-
-	// type Item struct {
-	// 	ID primitive.ObjectID `bson:"_id"`
-	// 	Name string `bson:"name"`
-	// 	Description string `bson:"description"`
-	// 	Price float64 `bson:"price"`
-	// 	Quantity int	`bson:"quantity"`
-	// 	Images []primitive.ObjectID `bson:"images"`
-	// 	OwnedBy primitive.ObjectID `bson:"ownedBy"`
-	// 	CreatedAt time.Time `bson:"createdAt"`
-	// 	UpdatedAt time.Time `bson:"updatedAt"`
-	// }
-
 	type User struct {
 		ID primitive.ObjectID `bson:"_id"`
 		FirstName string `bson:"first_name"`
@@ -287,26 +274,7 @@ func GetItemById(c *fiber.Ctx) error {
 	}
 
 	// send the results as a JSON response
-	return c.JSON(results)
-
-	// // Query for the `ItemDetailsRequest` document with the specified `id`
-	// var item Item
-	// err = itemsCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&item)
-	// if err != nil {
-	// 	// Return an error response if the document is not found
-	// 	if err == mongo.ErrNoDocuments {
-	// 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-	// 			"message": "Item not found",
-	// 		})
-	// 	}
-	// 	// Return an error response if there is a database error
-	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-	// 		"message": "Failed to get item from database",
-	// 	})
-	// }
-
-	// // Return the retrieved `ItemDetailsRequest` document as a JSON response
-	// return c.JSON(item)
+	return c.JSON(results[0])
 }
 
 /*
