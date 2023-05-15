@@ -258,6 +258,7 @@ func RegisterUser(c *fiber.Ctx) error {
 			LastName: lastName,
 			Password: password,
 			Email: email,
+			IsAvatarImageSet: false,
 			CreatedAt: util.GetCurrentTime(),
 			UpdatedAt: util.GetCurrentTime(),
 		}

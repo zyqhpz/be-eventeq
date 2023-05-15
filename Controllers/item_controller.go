@@ -57,6 +57,7 @@ func ConnectDBItems(client *mongo.Client) (*mongo.Collection) {
 	* Get all items
 */
 func GetItems(c *fiber.Ctx) error {
+
 	type Item struct {
 		ID primitive.ObjectID `bson:"_id"`
 		Name string `bson:"name"`
@@ -98,6 +99,79 @@ func GetItems(c *fiber.Ctx) error {
 }
 
 /*
+	* GET /api/item/withUser
+	* Get all items with user
+*/
+func GetItemsWithUser(c *fiber.Ctx) error {
+
+	type User struct {
+		ID primitive.ObjectID `bson:"_id"`
+		FirstName string `bson:"first_name"`
+		LastName string `bson:"last_name"`
+		IsAvatarImageSet bool `bson:"isAvatarImageSet"`
+	}
+
+	type Data struct {
+		ID          primitive.ObjectID `bson:"_id"`
+		Name        string             `bson:"name"`
+		Description string             `bson:"description"`
+		Price       float64            `bson:"price"`
+		Quantity    int                `bson:"quantity"`
+		Images      []primitive.ObjectID `bson:"images"`
+		OwnedBy     User
+		CreatedAt   time.Time          `bson:"created_at"`
+		UpdatedAt   time.Time          `bson:"updated_at"`
+	}
+
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// create a pipeline for the aggregation
+	pipeline := []bson.M{
+		{
+			"$lookup": bson.M{
+				"from":         "users",
+				"localField":   "ownedBy",
+				"foreignField": "_id",
+				"as":           "ownedBy",
+			},
+		},
+		{
+			"$unwind": bson.M{
+				"path":                       "$ownedBy",
+				"preserveNullAndEmptyArrays": true,
+			},
+		},
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+	collectionItems := ConnectDBItems(client)
+
+	cursor, err := collectionItems.Aggregate(ctx, pipeline)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer cursor.Close(ctx)
+
+	// Iterate through the documents and print them
+	var items []Data
+	for cursor.Next(ctx) {
+		var item Data
+		if err := cursor.Decode(&item); err != nil {
+			log.Fatal(err)
+		}
+		items = append(items, item)
+	}
+	return c.JSON(items)
+}
+
+/*
 	* GET /api/item/:id
 	* Get an item by id
 */
@@ -123,40 +197,84 @@ func GetItemById(c *fiber.Ctx) error {
 		})
 	}
 	defer client.Disconnect(context.Background())
+	ctx := context.Background()
 
 	// Select the `items` collection from the database
 	itemsCollection := ConnectDBItems(client)
 
-	type Item struct {
+	type User struct {
 		ID primitive.ObjectID `bson:"_id"`
-		Name string `bson:"name"`
-		Description string `bson:"description"`
-		Price float64 `bson:"price"`
-		Quantity int	`bson:"quantity"`
-		Images []primitive.ObjectID `bson:"images"`
-		OwnedBy primitive.ObjectID `bson:"ownedBy"`
-		CreatedAt time.Time `bson:"createdAt"`
-		UpdatedAt time.Time `bson:"updatedAt"`
+		FirstName string `bson:"first_name"`
+		LastName string `bson:"last_name"`
+		IsAvatarImageSet bool `bson:"isAvatarImageSet"`
 	}
 
-	// Query for the `ItemDetailsRequest` document with the specified `id`
-	var item Item
-	err = itemsCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&item)
+	type Data struct {
+		ID          primitive.ObjectID `bson:"_id"`
+		Name        string             `bson:"name"`
+		Description string             `bson:"description"`
+		Price       float64            `bson:"price"`
+		Quantity    int                `bson:"quantity"`
+		Images      []primitive.ObjectID `bson:"images"`
+		OwnedBy     User
+		CreatedAt   time.Time `bson:"createdAt"`
+		UpdatedAt   time.Time `bson:"updatedAt"`
+	}
+
+	// create a pipeline for the aggregation
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{"_id": id},
+		},
+		{
+			"$lookup": bson.M{
+				"from":         "users",
+				"localField":   "ownedBy",
+				"foreignField": "_id",
+				"as":           "ownedBy",
+			},
+		},
+		{
+			"$unwind": bson.M{
+				"path":                       "$ownedBy",
+				"preserveNullAndEmptyArrays": true,
+			},
+		},
+	}
+
+	// execute the aggregation pipeline
+	cursor, err := itemsCollection.Aggregate(ctx, pipeline)
 	if err != nil {
-		// Return an error response if the document is not found
-		if err == mongo.ErrNoDocuments {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"message": "Item not found",
-			})
-		}
-		// Return an error response if there is a database error
+		// Return an error response if the aggregation fails
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": "Failed to get item from database",
 		})
 	}
 
-	// Return the retrieved `ItemDetailsRequest` document as a JSON response
-	return c.JSON(item)
+	// loop through the results and decode them into Data objects
+	var data Data
+	var results []Data
+	for cursor.Next(ctx) {
+		err := cursor.Decode(&data)
+		if err != nil {
+			// Return an error response if the decoding fails
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "Failed to get item from database",
+			})
+		}
+		results = append(results, data)
+	}
+
+	// handle any errors that occurred during the cursor iteration
+	if err := cursor.Err(); err != nil {
+		// Return an error response if the iteration fails
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to get item from database",
+		})
+	}
+
+	// send the results as a JSON response
+	return c.JSON(results[0])
 }
 
 /*
