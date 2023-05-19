@@ -140,7 +140,7 @@ func LoginUser(c *fiber.Ctx) error {
 			HTTPOnly: true,
 		})
 
-		log.Println("Email: ", email, "Login Success")
+		log.Println("[USER] User logged in: ", email)
 		return c.JSON(fiber.Map{
 			"status": "success",
 			"message": "Login Success " + email,
@@ -270,7 +270,7 @@ func RegisterUser(c *fiber.Ctx) error {
 			log.Fatal(err)
 		}
 
-		fmt.Println("Inserted ID: ", result.InsertedID)
+		log.Println("[USER] User created: ", result.InsertedID, " ", email)
 
 		return c.JSON(fiber.Map{"status": "success", "message": "User created successfully"})
 	}
