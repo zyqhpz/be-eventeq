@@ -7,6 +7,7 @@ import (
 	"log"
 	// "mime/multipart"
 	// "strconv"
+
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
@@ -157,4 +158,69 @@ func SendMessage(c *fiber.Ctx) error {
 		"message": "Successfully sent message",
 		"data": res,
 	})
+}
+
+func FetchMessages(c *fiber.Ctx) error {
+	type Request struct {
+		Sender     	string  `json:"sender"`
+		Receiver   	string  `json:"receiver"`
+	}
+
+	req := new(Request)
+	if err := c.BodyParser(req); err != nil {
+		log.Println("Error parsing JSON request body:", err)
+		log.Println("Request body:", req)
+		return c.SendStatus(fiber.StatusBadRequest)
+	}
+
+	sender, err := primitive.ObjectIDFromHex(req.Sender)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid sender ID",
+		})
+	}
+
+	receiver, err := primitive.ObjectIDFromHex(req.Receiver)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Invalid receiver ID",
+		})
+	}
+
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+	collecttionChats := ConnectDBChats(client)
+
+	// Find all chats with sender and receiver
+	cursor, err := collecttionChats.Find(ctx, bson.M{"sender": sender, "receiver": receiver})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cursor.Close(ctx)
+
+	type Body struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		Message  	string             	`bson:"message"`
+		Sender	 	primitive.ObjectID 	`bson:"sender"`
+		Receiver 	primitive.ObjectID 	`bson:"receiver"`
+		CreatedAt 	time.Time 			`bson:"created_at"`
+	}
+
+	// Iterate through the documents and print them
+	var chats []Body
+	for cursor.Next(ctx) {
+		var chat Body
+		if err := cursor.Decode(&chat); err != nil {
+			log.Fatal(err)
+		}
+		chats = append(chats, chat)
+	}
+	return c.JSON(chats)
 }
