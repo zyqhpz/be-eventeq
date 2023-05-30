@@ -45,6 +45,7 @@ func setupRoutes(app *fiber.App) {
 
 	/* Chat */
 	app.Get("/api/chat/getUsers/:id", controller.GetChatUsers).Name("chat.getUsers")
+	app.Post("/api/chat/message", controller.SendMessage).Name("chat.sendMessage")
 
 	app.Get("/api/planet", GetPlanets).Name("planet.get")
 
