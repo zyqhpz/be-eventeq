@@ -503,6 +503,8 @@ func AddItem(c *fiber.Ctx) error {
 		return err
 	}
 
+	log.Println("[Item] Inserted new item: ", res.InsertedID)
+
 	// Return response
 	return c.JSON(fiber.Map{
 		"status": "success",
