@@ -197,8 +197,27 @@ func FetchMessages(c *fiber.Ctx) error {
 	defer client.Disconnect(ctx)
 	collecttionChats := ConnectDBChats(client)
 
+	// create condition to find all chats with sender and receiver or switch sender and receiver
+		// Construct the query
+	filter := bson.M{
+		"$or": []bson.M{
+			{
+				"$and": []bson.M{
+					{"sender": sender},
+					{"receiver": receiver},
+				},
+			},
+			{
+				"$and": []bson.M{
+					{"sender": receiver},
+					{"receiver": sender},
+				},
+			},
+		},
+	}
+
 	// Find all chats with sender and receiver
-	cursor, err := collecttionChats.Find(ctx, bson.M{"sender": sender, "receiver": receiver})
+	cursor, err := collecttionChats.Find(ctx, filter)
 
 	if err != nil {
 		log.Fatal(err)
