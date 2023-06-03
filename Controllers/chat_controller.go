@@ -222,5 +222,26 @@ func FetchMessages(c *fiber.Ctx) error {
 		}
 		chats = append(chats, chat)
 	}
+
+
+	if chats == nil {
+		// Find all chats with switch sender and receiver
+		cursor, err := collecttionChats.Find(ctx, bson.M{"sender": receiver, "receiver": sender})
+
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer cursor.Close(ctx)
+
+		// Iterate through the documents and print them
+		for cursor.Next(ctx) {
+			var chat Body
+			if err := cursor.Decode(&chat); err != nil {
+				log.Fatal(err)
+			}
+			chats = append(chats, chat)
+		}
+	}
+
 	return c.JSON(chats)
 }
