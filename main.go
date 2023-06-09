@@ -19,6 +19,7 @@ func setupRoutes(app *fiber.App) {
 	
 	/* User */
 	app.Get("/api/user", controller.GetUsers).Name("user.get")
+	app.Get("/api/user/id/:id", controller.GetUserById).Name("user.getById")
 	app.Post("/api/user/login/*", controller.LoginUser).Name("user.login")
 
 	app.Get("/api/user/auth/", controller.LoginUserAuth).Name("user.login.auth")
