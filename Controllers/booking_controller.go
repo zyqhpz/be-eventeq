@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
@@ -252,4 +253,90 @@ func CreateNewBooking(c *fiber.Ctx) error {
 		"message": "Booking created",
 		"data": result,
 	})
+}
+
+func GetBookingListByUserID(c *fiber.Ctx) error {
+	// get id from params
+	userId := c.Params("userId")
+
+	// convert id to primitive.ObjectID
+	uid, err := primitive.ObjectIDFromHex(userId)
+
+	type Item struct {
+		ItemID 		primitive.ObjectID 	`bson:"id"`
+		Name		string				`bson:"name"`
+		Price		float64 			`bson:"price"`
+		Quantity 	int32 				`bson:"quantity"`
+	}
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		UserID 		primitive.ObjectID 	`bson:"user_id"`
+		OwnerID		primitive.ObjectID 	`bson:"owner_id"`
+		Items 		[]Item 				`bson:"items"`
+		StartDate 	string 				`bson:"start_date"`
+		EndDate 	string 				`bson:"end_date"`
+		SubTotal 	float64 			`bson:"sub_total"`
+		ServiceFee 	float64 			`bson:"service_fee"`
+		GrandTotal 	float64 			`bson:"grand_total"`
+		Status 		int32 				`bson:"status"`
+		CreatedAt 	time.Time 			`bson:"created_at"`
+		UpdatedAt 	time.Time 			`bson:"updated_at"`
+	}
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	// Query for the Item document and filter by the User ID in ownedBy
+	cursor, err := bookingsCollection.Find(ctx, bson.M{"user_id": uid})
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Booking not found",
+			})
+		}
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to get booking from database",
+		})
+	}
+	defer cursor.Close(ctx)
+
+	// Iterate through the documents and print them
+	var bookings []Booking
+	for cursor.Next(ctx) {
+		var booking Booking
+		if err := cursor.Decode(&booking); err != nil {
+			log.Fatal(err)
+		}
+		bookings = append(bookings, booking)
+	}
+
+	// convert DD/MM/YYYY to date object for sorting
+
+	// sort by start date (ascending)
+	sort.Slice(bookings, func(i, j int) bool {
+
+		layout := "02/01/2006" // Specify the layout to match the input date format
+
+		// Parse the date string into a time.Time object
+		date1, _ := time.Parse(layout, bookings[i].StartDate)
+		date2, _ := time.Parse(layout, bookings[j].StartDate)
+
+		return date1.Before(date2)
+	})
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return c.JSON(bookings)
 }

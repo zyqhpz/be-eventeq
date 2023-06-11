@@ -41,6 +41,7 @@ func setupRoutes(app *fiber.App) {
 	/* Booking */
 	app.Get("/api/itemsForBooking/:ownerId", controller.GetItemDetailsForBooking).Name("booking.getItemDetailsForBooking")
 	app.Post("/api/booking/create", controller.CreateNewBooking).Name("booking.create")
+	app.Get("/api/booking/:userId/listing", controller.GetBookingListByUserID).Name("booking.getBookingListByUserID")
 
 	/* Chat */
 	app.Get("/api/chat/getUsers/:id", controller.GetChatUsers).Name("chat.getUsers")
