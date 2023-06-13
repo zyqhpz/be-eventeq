@@ -339,8 +339,7 @@ func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 			booking.Status = 1 // 0 = upcoming, 1 = active, 2 = completed, 3 = cancelled
 			booking.UpdatedAt = time.Now()
 
-			// fmt.Printf("Matched %v documents and updated %v documents.\n", updateResult.MatchedCount, updateResult.ModifiedCount)
-			log.Printf("Matched %v documents and updated %v documents.\n", updateResult.MatchedCount, updateResult.ModifiedCount)
+			log.Printf("Running update query for bookings, matched %v documents and updated %v documents.\n", updateResult.MatchedCount, updateResult.ModifiedCount)
 		}
 	}
 
@@ -462,6 +461,7 @@ func GetActiveBookingByBookingID(c *fiber.Ctx) error {
 		Name		string				`bson:"name"`
 		Price		float64 			`bson:"price"`
 		Quantity 	int32 				`bson:"quantity"`
+		Images 		[]primitive.ObjectID	`bson:"images"`
 	}
 
 	type Booking struct {
@@ -509,6 +509,32 @@ func GetActiveBookingByBookingID(c *fiber.Ctx) error {
 	var booking Booking
 	if err := result.Decode(&booking); err != nil {
 		log.Fatal(err)
+	}
+
+	// get Item image from database
+	itemsCollection := ConnectDBItems(client)
+	for i, item := range booking.Items {
+		filter := bson.M{"_id": item.ItemID}
+		result := itemsCollection.FindOne(ctx, filter)
+		if err != nil {
+			// Return an error response if the document is not found
+			if err == mongo.ErrNoDocuments {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"message": "Item not found",
+				})
+			}
+			// Return an error response if there is a database error
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "Failed to get item from database",
+			})
+		}
+
+		var item Item
+		if err := result.Decode(&item); err != nil {
+			log.Fatal(err)
+		}
+
+		booking.Items[i].Images = item.Images
 	}
 
 	defer client.Disconnect(ctx)
