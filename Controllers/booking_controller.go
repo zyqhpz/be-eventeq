@@ -232,7 +232,8 @@ func CreateNewBooking(c *fiber.Ctx) error {
 		}
 	}
 
-	booking.Status = 0 // 0 = pending, 1 = accepted, 2 = rejected, 3 = completed
+	// booking.Status = 0 // 0 = pending, 1 = accepted, 2 = rejected, 3 = completed
+	booking.Status = 0 // 0 = upcoming, 1 = active, 2 = completed, 3 = cancelled
 	booking.CreatedAt = time.Now()
 	booking.UpdatedAt = time.Now()
 
@@ -255,7 +256,7 @@ func CreateNewBooking(c *fiber.Ctx) error {
 	})
 }
 
-func GetBookingListByUserID(c *fiber.Ctx) error {
+func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 	// get id from params
 	userId := c.Params("userId")
 
@@ -316,14 +317,35 @@ func GetBookingListByUserID(c *fiber.Ctx) error {
 		if err := cursor.Decode(&booking); err != nil {
 			log.Fatal(err)
 		}
-		bookings = append(bookings, booking)
-	}
+		startDateString := booking.StartDate
 
-	// convert DD/MM/YYYY to date object for sorting
+		// convert DD/MM/YYYY to date object for comparison
+		layout := "02/01/2006" // Specify the layout to match the input date format
+		date, _ := time.Parse(layout, startDateString)
+
+		// compare date with current date
+		if date.After(time.Now()) {
+			bookings = append(bookings, booking)
+		} else {
+			// update status in database
+			updateResult, _ := bookingsCollection.UpdateOne(
+				ctx,
+				bson.M{"_id": booking.ID},
+				bson.D{
+					{Key: "$set", Value: bson.D{{Key: "status", Value: 1}}},
+				},
+			)
+
+			booking.Status = 1 // 0 = upcoming, 1 = active, 2 = completed, 3 = cancelled
+			booking.UpdatedAt = time.Now()
+
+			// fmt.Printf("Matched %v documents and updated %v documents.\n", updateResult.MatchedCount, updateResult.ModifiedCount)
+			log.Printf("Matched %v documents and updated %v documents.\n", updateResult.MatchedCount, updateResult.ModifiedCount)
+		}
+	}
 
 	// sort by start date (ascending)
 	sort.Slice(bookings, func(i, j int) bool {
-
 		layout := "02/01/2006" // Specify the layout to match the input date format
 
 		// Parse the date string into a time.Time object
@@ -339,4 +361,160 @@ func GetBookingListByUserID(c *fiber.Ctx) error {
 	defer cancel()
 
 	return c.JSON(bookings)
+}
+
+func GetActiveBookingListByUserID(c *fiber.Ctx) error {
+	// get id from params
+	userId := c.Params("userId")
+
+	// convert id to primitive.ObjectID
+	uid, err := primitive.ObjectIDFromHex(userId)
+
+	type Item struct {
+		ItemID 		primitive.ObjectID 	`bson:"id"`
+		Name		string				`bson:"name"`
+		Price		float64 			`bson:"price"`
+		Quantity 	int32 				`bson:"quantity"`
+	}
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		UserID 		primitive.ObjectID 	`bson:"user_id"`
+		OwnerID		primitive.ObjectID 	`bson:"owner_id"`
+		Items 		[]Item 				`bson:"items"`
+		StartDate 	string 				`bson:"start_date"`
+		EndDate 	string 				`bson:"end_date"`
+		SubTotal 	float64 			`bson:"sub_total"`
+		ServiceFee 	float64 			`bson:"service_fee"`
+		GrandTotal 	float64 			`bson:"grand_total"`
+		Status 		int32 				`bson:"status"`
+		CreatedAt 	time.Time 			`bson:"created_at"`
+		UpdatedAt 	time.Time 			`bson:"updated_at"`
+	}
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	// create filter by user_id and status
+	filter := bson.M{"user_id": uid, "status": 1}
+
+	// Query for the Item document and filter by the User ID in ownedBy
+	cursor, err := bookingsCollection.Find(ctx, filter)
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Booking not found",
+			})
+		}
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to get booking from database",
+		})
+	}
+	defer cursor.Close(ctx)
+
+	// Iterate through the documents and print them
+	var bookings []Booking
+	for cursor.Next(ctx) {
+		var booking Booking
+		if err := cursor.Decode(&booking); err != nil {
+			log.Fatal(err)
+		}
+
+		bookings = append(bookings, booking)
+	}
+
+	// sort by start date (ascending)
+	sort.Slice(bookings, func(i, j int) bool {
+		layout := "02/01/2006" // Specify the layout to match the input date format
+
+		// Parse the date string into a time.Time object
+		date1, _ := time.Parse(layout, bookings[i].StartDate)
+		date2, _ := time.Parse(layout, bookings[j].StartDate)
+
+		return date1.Before(date2)
+	})
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return c.JSON(bookings)
+}
+
+func GetActiveBookingByBookingID(c *fiber.Ctx) error {
+	// get id from params
+	bookingId := c.Params("bookingId")
+
+	// convert id to primitive.ObjectID
+	bid, err := primitive.ObjectIDFromHex(bookingId)
+
+	type Item struct {
+		ItemID 		primitive.ObjectID 	`bson:"id"`
+		Name		string				`bson:"name"`
+		Price		float64 			`bson:"price"`
+		Quantity 	int32 				`bson:"quantity"`
+	}
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		UserID 		primitive.ObjectID 	`bson:"user_id"`
+		OwnerID		primitive.ObjectID 	`bson:"owner_id"`
+		Items 		[]Item 				`bson:"items"`
+		StartDate 	string 				`bson:"start_date"`
+		EndDate 	string 				`bson:"end_date"`
+		SubTotal 	float64 			`bson:"sub_total"`
+		ServiceFee 	float64 			`bson:"service_fee"`
+		GrandTotal 	float64 			`bson:"grand_total"`
+		Status 		int32 				`bson:"status"`
+		CreatedAt 	time.Time 			`bson:"created_at"`
+		UpdatedAt 	time.Time 			`bson:"updated_at"`
+	}
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	// create filter by user_id and status
+	filter := bson.M{"_id": bid}
+
+	// Query for the Item document and filter by the User ID in ownedBy
+	result := bookingsCollection.FindOne(ctx, filter)
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Booking not found",
+			})
+		}
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to get booking from database",
+		})
+	}
+
+	var booking Booking
+	if err := result.Decode(&booking); err != nil {
+		log.Fatal(err)
+	}
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	return c.JSON(booking)
 }
