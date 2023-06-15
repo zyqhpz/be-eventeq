@@ -294,8 +294,11 @@ func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 	bookingsCollection := ConnectDBBookings(client)
 	ctx := context.Background()
 
+	// add filter by status = 0 (upcoming) only
+	filter := bson.M{"user_id": uid, "status": 0}
+
 	// Query for the Item document and filter by the User ID in ownedBy
-	cursor, err := bookingsCollection.Find(ctx, bson.M{"user_id": uid})
+	cursor, err := bookingsCollection.Find(ctx, filter)
 	if err != nil {
 		// Return an error response if the document is not found
 		if err == mongo.ErrNoDocuments {
@@ -400,8 +403,8 @@ func GetActiveBookingListByUserID(c *fiber.Ctx) error {
 	bookingsCollection := ConnectDBBookings(client)
 	ctx := context.Background()
 
-	// create filter by user_id and status
-	filter := bson.M{"user_id": uid, "status": 1}
+	// create filter by user_id and status = 1 (active) and 2 (item retrieved)
+	filter := bson.M{"user_id": uid, "status": bson.M{"$in": []int32{1, 2}}}
 
 	// Query for the Item document and filter by the User ID in ownedBy
 	cursor, err := bookingsCollection.Find(ctx, filter)
@@ -543,4 +546,55 @@ func GetActiveBookingByBookingID(c *fiber.Ctx) error {
 	defer cancel()
 	
 	return c.JSON(booking)
+}
+
+// update booking status to item retrieved
+func UpdateBookingStatusAfterItemRetrieved(c *fiber.Ctx) error {
+	// get id from params
+	bookingId := c.Params("bookingId")
+
+	// convert id to primitive.ObjectID
+	bid, err := primitive.ObjectIDFromHex(bookingId)
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	// Update status in the database
+	filter := bson.M{"_id": bid}
+	update := bson.M{"$set": bson.M{"status": 2}}
+	updateResult, err := bookingsCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Println("Error updating booking status:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to update booking status",
+		})
+	}
+
+	if err != nil {
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to update booking status",
+			"status": "failed",
+		})
+	}
+
+	log.Printf("New status for booking %v is %v.\n", bid, updateResult)
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Booking status updated",
+		"data": updateResult,
+	})
 }
