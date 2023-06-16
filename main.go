@@ -40,6 +40,12 @@ func setupRoutes(app *fiber.App) {
 
 	/* Booking */
 	app.Get("/api/itemsForBooking/:ownerId", controller.GetItemDetailsForBooking).Name("booking.getItemDetailsForBooking")
+	app.Post("/api/booking/create", controller.CreateNewBooking).Name("booking.create")
+	app.Get("/api/booking/:userId/upcoming/listing", controller.GetUpcomingBookingListByUserID).Name("booking.getUpcomingBookingListByUserID")
+	app.Get("/api/booking/:userId/active/listing", controller.GetActiveBookingListByUserID).Name("booking.getActiveBookingListByUserID")
+	// app.Get("/api/booking/:userId/ended/listing", controller.GetPastBookingListByUserID).Name("booking.getPastBookingListByUserID")
+	app.Get("/api/booking/active/:bookingId", controller.GetActiveBookingByBookingID).Name("booking.getActiveBookingByBookingID")
+	app.Put("/api/booking/active/:bookingId/retrieve", controller.UpdateBookingStatusAfterItemRetrieved).Name("booking.updateBookingStatusAfterItemRetrieved")
 
 	/* Chat */
 	app.Get("/api/chat/getUsers/:id", controller.GetChatUsers).Name("chat.getUsers")
@@ -50,7 +56,6 @@ func setupRoutes(app *fiber.App) {
 		return c.JSON(fiber.Map{"message": "Login Success"})
 	})
 }
-
 
 func main() {
     app := fiber.New(fiber.Config{
