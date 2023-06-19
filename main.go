@@ -1,7 +1,10 @@
 package main
 
 import (
-	// model "example/be-eventeq/Models"
+	"context"
+	"fmt"
+	"log"
+	"os"
 
 	controller "github.com/zyqhpz/be-eventeq/Controllers"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -63,6 +66,13 @@ func main() {
 		// EnablePrintRoutes: true,
 		// DisableStartupMessage: true,
 	})
+
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		port = "8080"
+	}
+
 	
 	app.Use(cors.New(
 		cors.Config{
@@ -70,5 +80,6 @@ func main() {
 		},
 	))
 	setupRoutes(app)
-    app.Listen(":8080")
+	log.Fatal(app.Listen("0.0.0.0:" + port))
+    // app.Listen(":8080")
 }
