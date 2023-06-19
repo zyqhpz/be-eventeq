@@ -13,6 +13,8 @@ type User struct {
 	Password  string             	`bson:"password"`
 	Email     string             	`bson:"email"`
 
+	IsAvatarImageSet bool 			`bson:"isAvatarImageSet"`
+
 	Location  Location           	`bson:"location"`
 
 	// Timestamp
