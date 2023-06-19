@@ -140,9 +140,10 @@ func LoginUser(c *fiber.Ctx) error {
 			HTTPOnly: true,
 		})
 
-		log.Println("Email: ", email, "Login Success")
+		log.Println("[USER] User logged in: ", email)
 		return c.JSON(fiber.Map{
 			"status": "success",
+			"userId": result.ID,
 			"message": "Login Success " + email,
 		})
 	}
@@ -270,7 +271,7 @@ func RegisterUser(c *fiber.Ctx) error {
 			log.Fatal(err)
 		}
 
-		fmt.Println("Inserted ID: ", result.InsertedID)
+		log.Println("[USER] User created: ", result.InsertedID, " ", email)
 
 		return c.JSON(fiber.Map{"status": "success", "message": "User created successfully"})
 	}
@@ -283,6 +284,12 @@ func RegisterUser(c *fiber.Ctx) error {
 func GetUserById(c *fiber.Ctx) error {
 	id := c.Params("id")
 
+	// Convert the id string to a MongoDB ObjectId
+	oid, err := primitive.ObjectIDFromHex(id)
+
+	if err != nil {
+	}
+
 	client, _  := db.ConnectDB()
 	ctx := context.Background()
 	defer client.Disconnect(ctx)
@@ -290,7 +297,7 @@ func GetUserById(c *fiber.Ctx) error {
 	collection := ConnectDBUsers(client)
 
 	// Define a filter to find the user with the given id
-	filter := bson.M{"_id": id}
+	filter := bson.M{"_id": oid}
 
 	// Count the number of documents that match the filter
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

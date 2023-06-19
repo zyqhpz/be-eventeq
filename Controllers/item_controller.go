@@ -66,8 +66,8 @@ func GetItems(c *fiber.Ctx) error {
 		Quantity int	`bson:"quantity"`
 		Images []primitive.ObjectID `bson:"images"`
 		OwnedBy primitive.ObjectID `bson:"ownedBy"`
-		CreatedAt time.Time `bson:"createdAt"`
-		UpdatedAt time.Time `bson:"updatedAt"`
+		CreatedAt time.Time `bson:"created_at"`
+		UpdatedAt time.Time `bson:"updated_at"`
 	}
 
 	client, err  := db.ConnectDB()
@@ -217,8 +217,8 @@ func GetItemById(c *fiber.Ctx) error {
 		Quantity    int                `bson:"quantity"`
 		Images      []primitive.ObjectID `bson:"images"`
 		OwnedBy     User
-		CreatedAt   time.Time `bson:"createdAt"`
-		UpdatedAt   time.Time `bson:"updatedAt"`
+		CreatedAt   time.Time `bson:"created_at"`
+		UpdatedAt   time.Time `bson:"updated_at"`
 	}
 
 	// create a pipeline for the aggregation
@@ -252,9 +252,9 @@ func GetItemById(c *fiber.Ctx) error {
 	}
 
 	// loop through the results and decode them into Data objects
-	var data Data
 	var results []Data
 	for cursor.Next(ctx) {
+		var data Data
 		err := cursor.Decode(&data)
 		if err != nil {
 			// Return an error response if the decoding fails
@@ -291,8 +291,8 @@ func GetItemsByUserId(c *fiber.Ctx) error {
 		Quantity int	`bson:"quantity"`
 		Images []primitive.ObjectID `bson:"images"`
 		OwnedBy primitive.ObjectID `bson:"ownedBy"`
-		CreatedAt time.Time `bson:"createdAt"`
-		UpdatedAt time.Time `bson:"updatedAt"`
+		CreatedAt time.Time `bson:"created_at"`
+		UpdatedAt time.Time `bson:"updated_at"`
 	}
 
 	// Retrieve the `id` parameter from the request URL
@@ -502,6 +502,8 @@ func AddItem(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
+	log.Println("[Item] Inserted new item: ", res.InsertedID)
 
 	// Return response
 	return c.JSON(fiber.Map{
