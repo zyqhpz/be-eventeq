@@ -20,13 +20,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type RegisterUserRequest struct {
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Password  string `json:"password"`
-	Email     string `json:"email"`
-}
-
 /*
 	* Connect to the "users" collection
 	@param client *mongo.Client
@@ -158,8 +151,6 @@ func LoginUser(c *fiber.Ctx) error {
 func LoginUserAuth(c *fiber.Ctx) error {
 	cookie := c.Cookies("jwt")
 
-	// fmt.Println(cookie)
-
 	if cookie == "" {
 		return c.JSON(fiber.Map{"status": "failed", "message": "Not logged in"})
 	}
@@ -223,7 +214,14 @@ func LogoutUser(c *fiber.Ctx) error {
 */
 func RegisterUser(c *fiber.Ctx) error {
 
-	req := new(RegisterUserRequest)
+	type body struct {
+		FirstName 	string `json:"firstName"`
+		LastName 	string `json:"lastName"`
+		Email    	string `json:"email"`
+		Password 	string `json:"password"`
+	}
+	
+	req := new(body)
 	if err := c.BodyParser(req); err != nil {
 		log.Println("Error parsing JSON request body:", err)
 		return c.SendStatus(fiber.StatusBadRequest)
