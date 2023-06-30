@@ -406,6 +406,7 @@ func AddItem(c *fiber.Ctx) error {
 	// Get all files from form
 	name := form.Value["name"][0]
 	description := form.Value["description"][0]
+	category := form.Value["category"][0]
 	price, _ := strconv.ParseFloat(form.Value["price"][0], 64)
 	quantity, _ := strconv.Atoi(form.Value["quantity"][0])
 	id := form.Value["userID"][0]
@@ -473,21 +474,23 @@ func AddItem(c *fiber.Ctx) error {
 	}
 
 	type Item struct {
-		ID primitive.ObjectID `bson:"_id,omitempty"`
-		Name string `bson:"name"`
-		Description string `bson:"description"`
-		Price float64 `bson:"price"`
-		Quantity int	`bson:"quantity"`
-		Images []primitive.ObjectID `bson:"images"`
-		OwnedBy primitive.ObjectID `bson:"ownedBy"`
-		CreatedAt time.Time `bson:"created_at"`
-		UpdatedAt time.Time `bson:"updated_at"`
+		ID 			primitive.ObjectID 		`bson:"_id,omitempty"`
+		Name 		string 					`bson:"name"`
+		Description string 					`bson:"description"`
+		Category 	string 					`bson:"category"`
+		Price 		float64 				`bson:"price"`
+		Quantity 	int						`bson:"quantity"`
+		Images 		[]primitive.ObjectID 	`bson:"images"`
+		OwnedBy 	primitive.ObjectID 		`bson:"ownedBy"`
+		CreatedAt 	time.Time 				`bson:"created_at"`
+		UpdatedAt 	time.Time 				`bson:"updated_at"`
 	}
 
 	item := Item{
 		ID: primitive.NewObjectID(),
 		Name: name,
 		Description: description,
+		Category: category,
 		Price: price,
 		Quantity: quantity,
 		Images: fileIDs,
