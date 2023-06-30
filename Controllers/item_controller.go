@@ -59,15 +59,16 @@ func ConnectDBItems(client *mongo.Client) (*mongo.Collection) {
 func GetItems(c *fiber.Ctx) error {
 
 	type Item struct {
-		ID primitive.ObjectID `bson:"_id"`
-		Name string `bson:"name"`
-		Description string `bson:"description"`
-		Price float64 `bson:"price"`
-		Quantity int	`bson:"quantity"`
-		Images []primitive.ObjectID `bson:"images"`
-		OwnedBy primitive.ObjectID `bson:"ownedBy"`
-		CreatedAt time.Time `bson:"created_at"`
-		UpdatedAt time.Time `bson:"updated_at"`
+		ID 			primitive.ObjectID 		`bson:"_id"`
+		Name 		string 					`bson:"name"`
+		Description string 					`bson:"description"`
+		Category	string 					`bson:"category"`
+		Price 		float64 				`bson:"price"`
+		Quantity 	int						`bson:"quantity"`
+		Images 		[]primitive.ObjectID 	`bson:"images"`
+		OwnedBy 	primitive.ObjectID 		`bson:"ownedBy"`
+		CreatedAt 	time.Time 				`bson:"created_at"`
+		UpdatedAt 	time.Time 				`bson:"updated_at"`
 	}
 
 	client, err  := db.ConnectDB()
@@ -115,6 +116,7 @@ func GetItemsWithUser(c *fiber.Ctx) error {
 		ID          primitive.ObjectID `bson:"_id"`
 		Name        string             `bson:"name"`
 		Description string             `bson:"description"`
+		Category    string             `bson:"category"`
 		Price       float64            `bson:"price"`
 		Quantity    int                `bson:"quantity"`
 		Images      []primitive.ObjectID `bson:"images"`
@@ -284,15 +286,16 @@ func GetItemById(c *fiber.Ctx) error {
 func GetItemsByUserId(c *fiber.Ctx) error {
 
 	type Item struct {
-		ID primitive.ObjectID `bson:"_id"`
-		Name string `bson:"name"`
-		Description string `bson:"description"`
-		Price float64 `bson:"price"`
-		Quantity int	`bson:"quantity"`
-		Images []primitive.ObjectID `bson:"images"`
-		OwnedBy primitive.ObjectID `bson:"ownedBy"`
-		CreatedAt time.Time `bson:"created_at"`
-		UpdatedAt time.Time `bson:"updated_at"`
+		ID 			primitive.ObjectID 		`bson:"_id"`
+		Name 		string 					`bson:"name"`
+		Description string 					`bson:"description"`
+		Category	string 					`bson:"category"`
+		Price 		float64 				`bson:"price"`
+		Quantity 	int						`bson:"quantity"`
+		Images 		[]primitive.ObjectID 	`bson:"images"`
+		OwnedBy 	primitive.ObjectID 		`bson:"ownedBy"`
+		CreatedAt 	time.Time 				`bson:"created_at"`
+		UpdatedAt 	time.Time 				`bson:"updated_at"`
 	}
 
 	// Retrieve the `id` parameter from the request URL
