@@ -32,6 +32,7 @@ func setupRoutes(app *fiber.App) {
 	/* Item */
 	app.Get("/api/item", controller.GetItems).Name("item.get")
 	app.Post("/api/item/create", controller.AddItem).Name("item.create")
+	app.Put("/api/item/update/:id", controller.UpdateItem).Name("item.update")
 	app.Get("/api/item/:id", controller.GetItemById).Name("item.getItemById")
 	app.Get("/api/item/user/:id", controller.GetItemsByUserId).Name("item.getItemByUserId")
 	app.Get("/api/item/image/:id", controller.GetItemImageById).Name("item.getImage")

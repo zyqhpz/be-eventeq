@@ -21,27 +21,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type CreateNewItemRequest struct {
-	Name string `bson:"name"`
-	Description string `bson:"description"`
-	Price float64 `bson:"price"`
-	Quantity int	`bson:"quantity"`
-	Image primitive.ObjectID `bson:"image"`
-	CreatedAt time.Time `bson:"created_at"`
-	UpdatedAt time.Time `bson:"updated_at"`
-}
-
-type ItemDetailsRequest struct {
-	ID primitive.ObjectID `bson:"_id"`
-	Name string `bson:"name"`
-	Description string `bson:"description"`
-	Price float64 `bson:"price"`
-	Quantity int	`bson:"quantity"`
-	Image primitive.ObjectID `bson:"image"`
-	CreatedAt time.Time `bson:"created_at"`
-	UpdatedAt time.Time `bson:"updated_at"`
-}
-
 /*
 	* Connect to the "items" collection
 	@param client *mongo.Client
@@ -63,6 +42,8 @@ func GetItems(c *fiber.Ctx) error {
 		Name 		string 					`bson:"name"`
 		Description string 					`bson:"description"`
 		Category	string 					`bson:"category"`
+		Status 		int 					`bson:"status"`
+		InStock 	int 					`bson:"in_stock"`
 		Price 		float64 				`bson:"price"`
 		Quantity 	int						`bson:"quantity"`
 		Images 		[]primitive.ObjectID 	`bson:"images"`
@@ -113,16 +94,18 @@ func GetItemsWithUser(c *fiber.Ctx) error {
 	}
 
 	type Data struct {
-		ID          primitive.ObjectID `bson:"_id"`
-		Name        string             `bson:"name"`
-		Description string             `bson:"description"`
-		Category    string             `bson:"category"`
-		Price       float64            `bson:"price"`
-		Quantity    int                `bson:"quantity"`
-		Images      []primitive.ObjectID `bson:"images"`
+		ID          primitive.ObjectID 		`bson:"_id"`
+		Name        string             		`bson:"name"`
+		Description string             		`bson:"description"`
+		Category    string             		`bson:"category"`
+		Status 		int 					`bson:"status"`
+		InStock 	int 					`bson:"in_stock"`
+		Price       float64            		`bson:"price"`
+		Quantity    int                		`bson:"quantity"`
+		Images      []primitive.ObjectID 	`bson:"images"`
 		OwnedBy     User
-		CreatedAt   time.Time          `bson:"created_at"`
-		UpdatedAt   time.Time          `bson:"updated_at"`
+		CreatedAt   time.Time          		`bson:"created_at"`
+		UpdatedAt   time.Time          		`bson:"updated_at"`
 	}
 
 	client, err  := db.ConnectDB()
@@ -212,15 +195,15 @@ func GetItemById(c *fiber.Ctx) error {
 	}
 
 	type Data struct {
-		ID          primitive.ObjectID `bson:"_id"`
-		Name        string             `bson:"name"`
-		Description string             `bson:"description"`
-		Price       float64            `bson:"price"`
-		Quantity    int                `bson:"quantity"`
-		Images      []primitive.ObjectID `bson:"images"`
+		ID          primitive.ObjectID 		`bson:"_id"`
+		Name        string             		`bson:"name"`
+		Description string             		`bson:"description"`
+		Price       float64            		`bson:"price"`
+		Quantity    int                		`bson:"quantity"`
+		Images      []primitive.ObjectID 	`bson:"images"`
 		OwnedBy     User
-		CreatedAt   time.Time `bson:"created_at"`
-		UpdatedAt   time.Time `bson:"updated_at"`
+		CreatedAt   time.Time 				`bson:"created_at"`
+		UpdatedAt   time.Time 				`bson:"updated_at"`
 	}
 
 	// create a pipeline for the aggregation
@@ -290,6 +273,8 @@ func GetItemsByUserId(c *fiber.Ctx) error {
 		Name 		string 					`bson:"name"`
 		Description string 					`bson:"description"`
 		Category	string 					`bson:"category"`
+		Status 		int 					`bson:"status"`
+		InStock 	int 					`bson:"in_stock"`
 		Price 		float64 				`bson:"price"`
 		Quantity 	int						`bson:"quantity"`
 		Images 		[]primitive.ObjectID 	`bson:"images"`
@@ -481,6 +466,8 @@ func AddItem(c *fiber.Ctx) error {
 		Name 		string 					`bson:"name"`
 		Description string 					`bson:"description"`
 		Category 	string 					`bson:"category"`
+		Status 		int 					`bson:"status"`
+		InStock 	int 					`bson:"in_stock"`
 		Price 		float64 				`bson:"price"`
 		Quantity 	int						`bson:"quantity"`
 		Images 		[]primitive.ObjectID 	`bson:"images"`
@@ -494,6 +481,8 @@ func AddItem(c *fiber.Ctx) error {
 		Name: name,
 		Description: description,
 		Category: category,
+		Status: 1,
+		InStock: quantity,
 		Price: price,
 		Quantity: quantity,
 		Images: fileIDs,
@@ -517,4 +506,210 @@ func AddItem(c *fiber.Ctx) error {
 		"message": "Item created successfully",
 		"item_id": res.InsertedID,
 	})
+}
+
+func UpdateItem(c *fiber.Ctx) error {
+
+	id := c.Params("id")
+
+	objectID, err := primitive.ObjectIDFromHex(id)
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		return err
+	}
+
+	// Get all files from form
+	name := form.Value["name"][0]
+	description := form.Value["description"][0]
+	category := form.Value["category"][0]
+	price, _ := strconv.ParseFloat(form.Value["price"][0], 64)
+	quantity, _ := strconv.Atoi(form.Value["quantity"][0])
+	imagesCount, _ := strconv.Atoi(form.Value["imagesCount"][0])
+	
+	// make files array
+	var files[] *multipart.FileHeader
+	for i := 0; i < imagesCount; i++ {
+		imageCount := "images-" + strconv.Itoa(i)
+	
+		file, err := c.FormFile(imageCount)
+		if err != nil {
+			return err
+		}
+
+		files = append(files, file)
+	}
+
+	client, err  := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	db := client.Database("eventeq")
+	bucket, err := gridfs.NewBucket(db, options.GridFSBucket().SetName("images"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	imageIDs, err := GetImageIDsByItemID(objectID)
+	if err != nil {
+		return err
+	}
+
+	for _, imageID := range imageIDs {
+		err := RemoveImageByID(imageID)
+		if err != nil {
+			return err
+		}
+	}
+
+	// create an array to store Images ids
+	var fileIDs []primitive.ObjectID
+	for _, file := range files {
+
+		// Open the file
+		src, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+
+		// Create a new upload stream
+		uploadStream, err := bucket.OpenUploadStream(file.Filename)
+		if err != nil {
+			return err
+		}
+		defer uploadStream.Close()
+
+		// Copy the file data to the upload stream
+		_, err = io.Copy(uploadStream, src)
+		if err != nil {
+			return err
+		}
+
+		// Get the ID of the uploaded file
+		fileID := uploadStream.FileID
+		fileIDs = append(fileIDs, fileID.(primitive.ObjectID))
+
+		log.Println("file " + file.Filename + " uploaded successfully")
+	}
+
+	type Item struct {
+		ID 			primitive.ObjectID 		`bson:"_id,omitempty"`
+		Name 		string 					`bson:"name"`
+		Description string 					`bson:"description"`
+		Category 	string 					`bson:"category"`
+		Status 		int 					`bson:"status"`
+		InStock 	int 					`bson:"in_stock"`
+		Price 		float64 				`bson:"price"`
+		Quantity 	int						`bson:"quantity"`
+		Images 		[]primitive.ObjectID 	`bson:"images"`
+		OwnedBy 	primitive.ObjectID 		`bson:"ownedBy"`
+		CreatedAt 	time.Time 				`bson:"created_at"`
+		UpdatedAt 	time.Time 				`bson:"updated_at"`
+	}
+
+	item := Item{
+		ID: objectID,
+		Name: name,
+		Description: description,
+		Category: category,
+		Status: 1,
+		InStock: quantity,
+		Price: price,
+		Quantity: quantity,
+		Images: fileIDs,
+		UpdatedAt: util.GetCurrentTime(),
+	}
+
+	// update item into database
+	collectionItems := db.Collection("items")
+
+	filter := bson.M{"_id": item.ID}
+	update := bson.M{"$set": bson.M{
+		"name": item.Name,
+		"description": item.Description,
+		"category": item.Category,
+		"status": item.Status,
+		"in_stock": item.InStock,
+		"price": item.Price,
+		"quantity": item.Quantity,
+		"images": item.Images,
+		"updated_at": item.UpdatedAt,
+	}}
+
+	res, err := collectionItems.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		return err
+	}
+
+	log.Println("[Item] Item updated count: ", res.ModifiedCount)
+
+	// Return response
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"message": "Item updated successfully",
+		"item_id": res.UpsertedID,
+	})
+}
+
+func GetImageIDsByItemID(id primitive.ObjectID) ([]primitive.ObjectID, error) {
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `items` collection from the database
+	itemsCollection := ConnectDBItems(client)
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	// Query for the Item document and filter by the User ID in ownedBy
+	var item struct {
+		Images []primitive.ObjectID `bson:"images"`
+	}
+	err = itemsCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&item)
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return nil, err
+		}
+		// Return an error response if there is a database error
+		return nil, err
+	}
+
+	return item.Images, nil
+}
+
+func RemoveImageByID(id primitive.ObjectID) error {
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	db := client.Database("eventeq")
+	bucket, err := gridfs.NewBucket(db, options.GridFSBucket().SetName("images"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Delete document matching a specific condition
+	err = bucket.Delete(id)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("[Item] Deleted image:", id.Hex())
+
+	return nil
 }
