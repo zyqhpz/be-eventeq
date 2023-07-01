@@ -31,13 +31,15 @@ func setupRoutes(app *fiber.App) {
 
 	/* Item */
 	app.Get("/api/item", controller.GetItems).Name("item.get")
+	app.Get("/api/itemActive", controller.GetActiveItems).Name("item.getActive")
 	app.Post("/api/item/create", controller.AddItem).Name("item.create")
 	app.Put("/api/item/update/:id", controller.UpdateItem).Name("item.update")
 	app.Get("/api/item/:id", controller.GetItemById).Name("item.getItemById")
 	app.Get("/api/item/user/:id", controller.GetItemsByUserId).Name("item.getItemByUserId")
 	app.Get("/api/item/image/:id", controller.GetItemImageById).Name("item.getImage")
 	
-	app.Get("/api/itemWithUser", controller.GetItemsWithUser).Name("item.getWithUser")
+	app.Get("/api/itemsWithUser", controller.GetItemsWithUser).Name("item.getWithUser")
+	app.Get("/api/itemsActiveWithUser", controller.GetItemsActiveWithUser).Name("item.getActiveWithUser")
 
 	/* Booking */
 	app.Get("/api/itemsForBooking/:ownerId", controller.GetItemDetailsForBooking).Name("booking.getItemDetailsForBooking")

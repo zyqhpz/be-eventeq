@@ -81,7 +81,56 @@ func GetItems(c *fiber.Ctx) error {
 }
 
 /*
-	* GET /api/item/withUser
+	* GET /api/itemsActive
+	* Get all items with status 1
+*/
+func GetActiveItems(c *fiber.Ctx) error {
+
+	type Item struct {
+		ID 			primitive.ObjectID 		`bson:"_id"`
+		Name 		string 					`bson:"name"`
+		Description string 					`bson:"description"`
+		Category	string 					`bson:"category"`
+		Status 		int 					`bson:"status"`
+		InStock 	int 					`bson:"in_stock"`
+		Price 		float64 				`bson:"price"`
+		Quantity 	int						`bson:"quantity"`
+		Images 		[]primitive.ObjectID 	`bson:"images"`
+		OwnedBy 	primitive.ObjectID 		`bson:"ownedBy"`
+		CreatedAt 	time.Time 				`bson:"created_at"`
+		UpdatedAt 	time.Time 				`bson:"updated_at"`
+	}
+
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+	collectionItems := ConnectDBItems(client)
+
+	cursor, err := collectionItems.Find(ctx, bson.M{"status": 1})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cursor.Close(ctx)
+
+	// Iterate through the documents and print them
+	var items []Item
+	for cursor.Next(ctx) {
+		var item Item
+		if err := cursor.Decode(&item); err != nil {
+			log.Fatal(err)
+		}
+		items = append(items, item)
+	}
+	return c.JSON(items)
+}
+
+/*
+	* GET /api/itemsWithUser
 	* Get all items with user
 */
 func GetItemsWithUser(c *fiber.Ctx) error {
@@ -129,6 +178,85 @@ func GetItemsWithUser(c *fiber.Ctx) error {
 				"path":                       "$ownedBy",
 				"preserveNullAndEmptyArrays": true,
 			},
+		},
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+	collectionItems := ConnectDBItems(client)
+
+	cursor, err := collectionItems.Aggregate(ctx, pipeline)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer cursor.Close(ctx)
+
+	// Iterate through the documents and print them
+	var items []Data
+	for cursor.Next(ctx) {
+		var item Data
+		if err := cursor.Decode(&item); err != nil {
+			log.Fatal(err)
+		}
+		items = append(items, item)
+	}
+	return c.JSON(items)
+}
+
+/*
+	* GET /api/itemsActiveWithUser
+	* Get all items with user and status 1
+*/
+func GetItemsActiveWithUser(c *fiber.Ctx) error {
+
+	type User struct {
+		ID primitive.ObjectID `bson:"_id"`
+		FirstName string `bson:"first_name"`
+		LastName string `bson:"last_name"`
+		IsAvatarImageSet bool `bson:"isAvatarImageSet"`
+	}
+
+	type Data struct {
+		ID          primitive.ObjectID 		`bson:"_id"`
+		Name        string             		`bson:"name"`
+		Description string             		`bson:"description"`
+		Category    string             		`bson:"category"`
+		Status 		int 					`bson:"status"`
+		InStock 	int 					`bson:"in_stock"`
+		Price       float64            		`bson:"price"`
+		Quantity    int                		`bson:"quantity"`
+		Images      []primitive.ObjectID 	`bson:"images"`
+		OwnedBy     User
+		CreatedAt   time.Time          		`bson:"created_at"`
+		UpdatedAt   time.Time          		`bson:"updated_at"`
+	}
+
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// create a pipeline for the aggregation
+	pipeline := []bson.M{
+		{
+			"$lookup": bson.M{
+				"from":         "users",
+				"localField":   "ownedBy",
+				"foreignField": "_id",
+				"as":           "ownedBy",
+			},
+		},
+		{
+			"$unwind": bson.M{
+				"path":                       "$ownedBy",
+				"preserveNullAndEmptyArrays": true,
+			},
+		},
+		{
+			"$match": bson.M{"status": 1},
 		},
 	}
 
@@ -526,6 +654,11 @@ func UpdateItem(c *fiber.Ctx) error {
 	price, _ := strconv.ParseFloat(form.Value["price"][0], 64)
 	quantity, _ := strconv.Atoi(form.Value["quantity"][0])
 	imagesCount, _ := strconv.Atoi(form.Value["imagesCount"][0])
+
+	status := form.Value["status"][0]
+
+	// convert string to int
+	statusInt, _ := strconv.Atoi(status)
 	
 	// make files array
 	var files[] *multipart.FileHeader
@@ -618,7 +751,7 @@ func UpdateItem(c *fiber.Ctx) error {
 		Name: name,
 		Description: description,
 		Category: category,
-		Status: 1,
+		Status: statusInt,
 		InStock: quantity,
 		Price: price,
 		Quantity: quantity,
