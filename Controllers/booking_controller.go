@@ -20,7 +20,7 @@ import (
 )
 
 /*
-	Status code: 0 = upcoming, 1 = active, 2 = retrieved, 3 = returned, 4 = cancelled, 5 = not picked up, 6 = overdue
+	Status code: 0 = upcoming, 1 = active, 2 = retrieved, 3 = returned (completed), 4 = cancelled, 5 = not picked up, 6 = overdue
 */
 
 func ConnectDBBookings(client *mongo.Client) *mongo.Collection {
@@ -631,6 +631,109 @@ func GetEndedBookingListByUserID(c *fiber.Ctx) error {
 		if err := cursor.Decode(&booking); err != nil {
 			log.Fatal(err)
 		}
+
+		bookings = append(bookings, booking)
+	}
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return c.JSON(bookings)
+}
+
+// get item in booking by user id
+func GetItemInBookingListByUserID(c *fiber.Ctx) error {
+	// get id from params
+	userId := c.Params("userId")
+
+	// convert id to primitive.ObjectID
+	uid, err := primitive.ObjectIDFromHex(userId)
+
+	type Item struct {
+		ItemID 		primitive.ObjectID 	`bson:"id"`
+		Name		string				`bson:"name"`
+		Price		float64 			`bson:"price"`
+		Quantity 	int32 				`bson:"quantity"`
+	}
+
+	type User struct {
+		ID          primitive.ObjectID `bson:"_id,omitempty"`
+		FirstName   string             `bson:"first_name"`
+		LastName    string             `bson:"last_name"`
+		Email       string             `bson:"email"`
+		NoPhone	 	string             `bson:"no_phone"`
+	}
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		UserID 		primitive.ObjectID 	`bson:"user_id"`
+		BookedBy	User				`bson:"booked_by"`
+		OwnerID		primitive.ObjectID 	`bson:"owner_id"`
+		Items 		[]Item 				`bson:"items"`
+		StartDate 	string 				`bson:"start_date"`
+		EndDate 	string 				`bson:"end_date"`
+		SubTotal 	float64 			`bson:"sub_total"`
+		ServiceFee 	float64 			`bson:"service_fee"`
+		GrandTotal 	float64 			`bson:"grand_total"`
+		Status 		int32 				`bson:"status"`
+		CreatedAt 	time.Time 			`bson:"created_at"`
+		UpdatedAt 	time.Time 			`bson:"updated_at"`
+	}
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	// create filter by user_id and status 3 (completed)
+	filter := bson.M{
+		"owner_id": uid,
+	}
+
+	// sort documents by updated_at (descending)
+	sort := bson.D{{Key: "created_at", Value: -1}}
+
+	// Query for the Item document and filter by the User ID and status
+	cursor, err := bookingsCollection.Find(ctx, filter, &options.FindOptions{
+		Sort: sort,
+	})
+	
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Booking not found",
+			})
+		}
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to get booking from database",
+		})
+	}
+	defer cursor.Close(ctx)
+
+	// Iterate through the documents and print them
+	var bookings []Booking
+	for cursor.Next(ctx) {
+		var booking Booking
+		if err := cursor.Decode(&booking); err != nil {
+			log.Fatal(err)
+		}
+
+		// get user details from database
+		usersCollection := ConnectDBUsers(client)
+		ctx := context.Background()
+
+		var user User
+		usersCollection.FindOne(ctx, bson.M{"_id": booking.UserID}).Decode(&user)
+
+		booking.BookedBy = user
 
 		bookings = append(bookings, booking)
 	}
