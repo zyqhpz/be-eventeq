@@ -12,11 +12,16 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/gofiber/fiber/v2"
 
 	model "github.com/zyqhpz/be-eventeq/Models"
 )
+
+/*
+	Status code: 0 = upcoming, 1 = active, 2 = retrieved, 3 = returned, 4 = cancelled, 5 = not picked up, 6 = overdue
+*/
 
 func ConnectDBBookings(client *mongo.Client) *mongo.Collection {
 	// Get a handle to the "users" collection
@@ -232,8 +237,7 @@ func CreateNewBooking(c *fiber.Ctx) error {
 		}
 	}
 
-	// booking.Status = 0 // 0 = pending, 1 = accepted, 2 = rejected, 3 = completed
-	booking.Status = 0 // 0 = upcoming, 1 = active, 2 = completed, 3 = cancelled
+	booking.Status = 0
 	booking.CreatedAt = time.Now()
 	booking.UpdatedAt = time.Now()
 
@@ -257,6 +261,10 @@ func CreateNewBooking(c *fiber.Ctx) error {
 }
 
 func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
+
+	// run cron job to check booking status
+	BookingStatusChecker()
+
 	// get id from params
 	userId := c.Params("userId")
 
@@ -587,10 +595,21 @@ func GetEndedBookingListByUserID(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// create filter by user_id and status 3 (completed)
-	filter := bson.M{"user_id": uid, "status": 3}
+	filter := bson.M{
+		"user_id": uid,
+		"status": bson.M{
+			"$in": []int32{3, 4, 5, 6},
+		},
+	}
 
-	// Query for the Item document and filter by the User ID in ownedBy
-	cursor, err := bookingsCollection.Find(ctx, filter)
+	// sort documents by updated_at (descending)
+	sort := bson.D{{Key: "updated_at", Value: -1}}
+
+	// Query for the Item document and filter by the User ID and status
+	cursor, err := bookingsCollection.Find(ctx, filter, &options.FindOptions{
+		Sort: sort,
+	})
+	
 	if err != nil {
 		// Return an error response if the document is not found
 		if err == mongo.ErrNoDocuments {
@@ -615,17 +634,6 @@ func GetEndedBookingListByUserID(c *fiber.Ctx) error {
 
 		bookings = append(bookings, booking)
 	}
-
-	// sort by start date (ascending)
-	sort.Slice(bookings, func(i, j int) bool {
-		layout := "02/01/2006" // Specify the layout to match the input date format
-
-		// Parse the date string into a time.Time object
-		date1, _ := time.Parse(layout, bookings[i].StartDate)
-		date2, _ := time.Parse(layout, bookings[j].StartDate)
-
-		return date1.Before(date2)
-	})
 
 	defer client.Disconnect(ctx)
 
@@ -735,4 +743,70 @@ func UpdateBookingStatusAfterItemReturned(c *fiber.Ctx) error {
 		"message": "Booking status updated to item returned",
 		"data": updateResult,
 	})
+}
+
+// update booking status to cancelled if status = 1 and end date > current date
+func BookingStatusChecker() {
+
+	log.Println("Running cron job to check booking status...")
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		EndDate 	string 				`bson:"end_date"`
+		Status 		int32 				`bson:"status"`
+	}
+
+	filter := bson.M{"status": 1}
+	cur, err := bookingsCollection.Find(context.Background(), filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cur.Close(context.Background())
+
+	// Loop over the documents
+	for cur.Next(context.Background()) {
+		var booking Booking
+		err := cur.Decode(&booking)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		currentDate, _ := time.Parse("02/01/2006", time.Now().Format("02/01/2006"))
+
+		endDate, _ := time.Parse("02/01/2006", booking.EndDate)
+
+		if currentDate.After(endDate) {
+			// Update status in the database
+			filter := bson.M{"_id": booking.ID}
+			update := bson.M{"$set": bson.M{"status": 5}, "$currentDate": bson.M{"updated_at": true}}
+
+			// Process the document
+			updateResult, err := bookingsCollection.UpdateOne(context.Background(), filter, update)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			log.Printf("[BOOKINGS CHECKER] Updated booking %v status to %v.\n", booking.ID, updateResult)
+		}
+	}
+
+	if err := cur.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 }
