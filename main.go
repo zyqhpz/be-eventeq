@@ -33,19 +33,24 @@ func setupRoutes(app *fiber.App) {
 
 	/* Item */
 	app.Get("/api/item", controller.GetItems).Name("item.get")
+	app.Get("/api/itemActive", controller.GetActiveItems).Name("item.getActive")
 	app.Post("/api/item/create", controller.AddItem).Name("item.create")
+	app.Put("/api/item/update/:id", controller.UpdateItem).Name("item.update")
 	app.Get("/api/item/:id", controller.GetItemById).Name("item.getItemById")
 	app.Get("/api/item/user/:id", controller.GetItemsByUserId).Name("item.getItemByUserId")
 	app.Get("/api/item/image/:id", controller.GetItemImageById).Name("item.getImage")
 	
-	app.Get("/api/itemWithUser", controller.GetItemsWithUser).Name("item.getWithUser")
+	app.Get("/api/itemsWithUser", controller.GetItemsWithUser).Name("item.getWithUser")
+	app.Get("/api/itemsActiveWithUser", controller.GetItemsActiveWithUser).Name("item.getActiveWithUser")
 
 	/* Booking */
 	app.Get("/api/itemsForBooking/:ownerId", controller.GetItemDetailsForBooking).Name("booking.getItemDetailsForBooking")
 	app.Post("/api/booking/create", controller.CreateNewBooking).Name("booking.create")
+	app.Put("/api/booking/cancel/:bookingId", controller.UpdateBookingStatusToCancelled).Name("booking.cancel")
 	app.Get("/api/booking/:userId/upcoming/listing", controller.GetUpcomingBookingListByUserID).Name("booking.getUpcomingBookingListByUserID")
 	app.Get("/api/booking/:userId/active/listing", controller.GetActiveBookingListByUserID).Name("booking.getActiveBookingListByUserID")
 	app.Get("/api/booking/:userId/ended/listing", controller.GetEndedBookingListByUserID).Name("booking.getEndedBookingListByUserID")
+	app.Get("/api/booking/:userId/inBooking/listing", controller.GetItemInBookingListByUserID).Name("booking.getInBookingListByUserID")
 	app.Get("/api/booking/active/:bookingId", controller.GetActiveBookingByBookingID).Name("booking.getActiveBookingByBookingID")
 	app.Put("/api/booking/active/:bookingId/retrieve", controller.UpdateBookingStatusAfterItemRetrieved).Name("booking.updateBookingStatusAfterItemRetrieved")
 	app.Put("/api/booking/active/:bookingId/return", controller.UpdateBookingStatusAfterItemReturned).Name("booking.updateBookingStatusAfterItemReturned")
