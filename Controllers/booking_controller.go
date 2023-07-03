@@ -63,8 +63,10 @@ func GetItemDetailsForBooking(c *fiber.Ctx) error {
 	itemsCollection := ConnectDBItems(client)
 	ctx := context.Background()
 
+	filter := bson.M{"ownedBy": oid, "status": 1}
+
 	// Query for the Item document and filter by the User ID in ownedBy
-	cursor, err := itemsCollection.Find(ctx, bson.M{"ownedBy": oid})
+	cursor, err := itemsCollection.Find(ctx, filter)
 	if err != nil {
 		// Return an error response if the document is not found
 		if err == mongo.ErrNoDocuments {
