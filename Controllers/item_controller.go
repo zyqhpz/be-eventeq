@@ -217,7 +217,8 @@ func GetItemsActiveWithUser(c *fiber.Ctx) error {
 		FirstName 			string 				`bson:"first_name"`
 		LastName 			string 				`bson:"last_name"`
 		IsAvatarImageSet 	bool 				`bson:"isAvatarImageSet"`
-		Location 			model.Location 			`bson:"location"`
+		ProfileImage 		primitive.ObjectID 	`bson:"profile_image"`
+		Location 			model.Location 		`bson:"location"`
 	}
 
 	type Data struct {
