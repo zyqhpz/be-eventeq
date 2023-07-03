@@ -12,10 +12,10 @@ type User struct {
 	LastName  			string             	`bson:"last_name"`
 	Password  			string             	`bson:"password"`
 	Email     			string             	`bson:"email"`
+	NoPhone   			string             	`bson:"no_phone"`
 
 	IsAvatarImageSet 	bool 				`bson:"isAvatarImageSet"`
-	// ProfileImage     	string 				`bson:"profile_image"`
-	UserImageAvatar     string 				`bson:"profile_image"`
+	ProfileImage     	primitive.ObjectID	`bson:"profile_image"`
 
 	Location  			Location           	`bson:"location"`
 

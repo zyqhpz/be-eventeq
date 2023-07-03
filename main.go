@@ -26,7 +26,7 @@ func setupRoutes(app *fiber.App) {
 	app.Post("/api/user/logout/", controller.LogoutUser).Name("user.logout")
 
 	app.Post("/api/user/register/*", controller.RegisterUser).Name("user.register")
-	app.Put("/api/user/update/:email", controller.UpdateUserById).Name("user.update")
+	app.Put("/api/user/update/:id", controller.UpdateUserById).Name("user.update")
 	app.Put("/api/user/update/:email/password", controller.UpdateUserPasswordById).Name("user.updatePassword")
 
 	/* Item */
