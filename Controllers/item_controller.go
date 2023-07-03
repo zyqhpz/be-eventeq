@@ -10,6 +10,7 @@ import (
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
+	model "github.com/zyqhpz/be-eventeq/Models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -212,10 +213,11 @@ func GetItemsWithUser(c *fiber.Ctx) error {
 func GetItemsActiveWithUser(c *fiber.Ctx) error {
 
 	type User struct {
-		ID primitive.ObjectID `bson:"_id"`
-		FirstName string `bson:"first_name"`
-		LastName string `bson:"last_name"`
-		IsAvatarImageSet bool `bson:"isAvatarImageSet"`
+		ID 					primitive.ObjectID 	`bson:"_id"`
+		FirstName 			string 				`bson:"first_name"`
+		LastName 			string 				`bson:"last_name"`
+		IsAvatarImageSet 	bool 				`bson:"isAvatarImageSet"`
+		Location 			model.Location 			`bson:"location"`
 	}
 
 	type Data struct {
