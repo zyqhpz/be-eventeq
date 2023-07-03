@@ -354,12 +354,24 @@ func UpdateUserById(c *fiber.Ctx) error {
 		if err != nil {
 			return err
 		}
-
+		
 		db := client.Database("eventeq")
 		bucket, err := gridfs.NewBucket(db, options.GridFSBucket().SetName("images"))
 
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		oldImageID, err := GetUserImageByUserID(uid)
+		if err != nil {
+			return err
+		}
+
+		if (oldImageID != primitive.NilObjectID) {
+			err = RemoveUserImageByID(oldImageID)
+			if err != nil {
+				return err
+			}
 		}
 
 		// Open the file
@@ -526,3 +538,59 @@ func DeleteUserById(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"status": "failed", "message": "User not found"})
 }
 
+func GetUserImageByUserID(id primitive.ObjectID) (primitive.ObjectID, error) {
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the users collection from the database
+	usersCollection := ConnectDBUsers(client)
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	// Query for the Item document and filter by the User ID in ownedBy
+	var User struct {
+		Image primitive.ObjectID `bson:"profile_image"`
+	}
+	err = usersCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&User)
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return primitive.ObjectID{}, err
+		}
+		// Return an error response if there is a database error
+		return primitive.ObjectID{}, err
+	}
+
+	return User.Image, nil
+}
+
+func RemoveUserImageByID(id primitive.ObjectID) error {
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	db := client.Database("eventeq")
+	bucket, err := gridfs.NewBucket(db, options.GridFSBucket().SetName("images"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Delete document matching a specific condition
+	err = bucket.Delete(id)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("[USER] User image deleted: ", id)
+
+	return nil
+}
