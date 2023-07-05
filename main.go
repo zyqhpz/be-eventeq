@@ -53,6 +53,16 @@ func setupRoutes(app *fiber.App) {
 	app.Put("/api/booking/active/:bookingId/retrieve", controller.UpdateBookingStatusAfterItemRetrieved).Name("booking.updateBookingStatusAfterItemRetrieved")
 	app.Put("/api/booking/active/:bookingId/return", controller.UpdateBookingStatusAfterItemReturned).Name("booking.updateBookingStatusAfterItemReturned")
 
+	/* Event */
+	app.Get("/api/event", controller.GetEvents).Name("event.get")
+	app.Get("/api/eventActive", controller.GetActiveEvents).Name("event.getActive")
+	app.Post("/api/event/create", controller.AddEvent).Name("event.create")
+	app.Put("/api/event/update/:id", controller.UpdateEvent).Name("event.update")
+	app.Get("/api/event/:id", controller.GetEventById).Name("event.getEventById")
+	app.Get("/api/event/user/:id", controller.GetEventsByUserId).Name("event.getEventByUserId")
+	app.Get("/api/eventsWithUser", controller.GetEventsWithUser).Name("event.getWithUser")
+	app.Get("/api/eventsActiveWithUser", controller.GetEventsActiveWithUser).Name("event.getActiveWithUser")
+
 	/* Chat */
 	app.Get("/api/chat/getUsers/:id", controller.GetChatUsers).Name("chat.getUsers")
 	app.Post("/api/chat/messages/", controller.FetchMessages).Name("chat.fetchMessages")
