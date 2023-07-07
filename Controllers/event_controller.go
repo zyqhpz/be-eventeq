@@ -168,6 +168,15 @@ func GetEventsWithUser(c *fiber.Ctx) error {
 */
 func GetEventsActiveWithUser(c *fiber.Ctx) error {
 
+	type User struct {
+		ID 					primitive.ObjectID 	`bson:"_id"`
+		FirstName 			string 				`bson:"first_name"`
+		LastName 			string 				`bson:"last_name"`
+		IsAvatarImageSet 	bool 				`bson:"isAvatarImageSet"`
+		ProfileImage 		primitive.ObjectID 	`bson:"profile_image"`
+		Location 			model.Location 		`bson:"location"`
+	}
+
 	type Data struct {
 		ID        		primitive.ObjectID 	`bson:"_id,omitempty"`
 		Name        	string 				`bson:"name"`
@@ -176,7 +185,7 @@ func GetEventsActiveWithUser(c *fiber.Ctx) error {
 		StartDate   	string 				`bson:"start_date"`
 		EndDate     	string 				`bson:"end_date"`
 		Status	  		int 				`bson:"status"`
-		OrganizedBy 	model.User
+		OrganizedBy 	User
 		CreatedAt 		time.Time 			`bson:"created_at"`
 		UpdatedAt 		time.Time 			`bson:"updated_at"`
 	}
@@ -187,8 +196,11 @@ func GetEventsActiveWithUser(c *fiber.Ctx) error {
 		log.Fatal(err)
 	}
 
-	// create a pipeline for the aggregation
+	// create a pipeline for the aggregation to get all events with status 1 and user
 	pipeline := []bson.M{
+		{
+			"$match": bson.M{"status": 1},
+		},
 		{
 			"$lookup": bson.M{
 				"from":         "users",
@@ -202,9 +214,6 @@ func GetEventsActiveWithUser(c *fiber.Ctx) error {
 				"path":                       "$organized_by",
 				"preserveNullAndEmptyArrays": true,
 			},
-		},
-		{
-			"$match": bson.M{"status": 1},
 		},
 	}
 
@@ -225,8 +234,12 @@ func GetEventsActiveWithUser(c *fiber.Ctx) error {
 	for cursor.Next(ctx) {
 		var event Data
 		if err := cursor.Decode(&event); err != nil {
+			
 			log.Fatal(err)
 		}
+
+		// log.Println(event.OrganizedBy)
+
 		events = append(events, event)
 	}
 	return c.JSON(events)
@@ -475,6 +488,7 @@ func UpdateEvent(c *fiber.Ctx) error {
 	description := form.Value["description"][0]
 	startDate := form.Value["start_date"][0]
 	endDate := form.Value["end_date"][0]
+
 	state := form.Value["state"][0]
 	district := form.Value["district"][0]
 
@@ -516,7 +530,7 @@ func UpdateEvent(c *fiber.Ctx) error {
 		"description": event.Description,
 		"location": event.Location,
 		"start_date": event.StartDate,
-		"date_end": event.EndDate,
+		"end_date": event.EndDate,
 		"status": event.Status,
 		"updated_at": event.UpdatedAt,
 	}}
