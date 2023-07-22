@@ -3,9 +3,13 @@ package main
 import (
 	// model "example/be-eventeq/Models"
 
+	"log"
+	"time"
+
 	controller "github.com/zyqhpz/be-eventeq/Controllers"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
@@ -79,11 +83,60 @@ func main() {
 		// DisableStartupMessage: true,
 	})
 	
-	app.Use(cors.New(
-		cors.Config{
-			AllowCredentials: true,
-		},
-	))
+	// app.Use(cors.New(
+	// 	cors.Config{
+	// 		AllowCredentials: true,
+	// 	},
+	// ))
+
+	app.Use(cors.New(cors.Config{
+		AllowCredentials: true,
+		AllowOrigins: "*",
+		AllowMethods: "GET, POST, PUT, DELETE",
+		AllowHeaders: "Origin, Content-Type, Accept",
+	}))
+
+		// WebSocket route
+	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
+		// Handle WebSocket connection
+
+		log.Println("New client connected")
+
+		// Read messages from the client
+		go func() {
+			for {
+				_, msg, err := c.ReadMessage()
+				if err != nil {
+					log.Println("Read error:", err)
+					return
+				}
+				log.Printf("Received message: %s\n", msg)
+
+				// Echo the message back to the client
+				err = c.WriteMessage(websocket.TextMessage, msg)
+				if err != nil {
+					log.Println("Write error:", err)
+					return
+				}
+			}
+		}()
+
+		// Write messages to the client
+		go func() {
+			for {
+				// Send a message to the client
+				err := c.WriteMessage(websocket.TextMessage, []byte("Hello, client!"))
+				if err != nil {
+					log.Println("Write error:", err)
+					return
+				}
+
+				// Sleep for some time before sending the next message
+				time.Sleep(time.Second * 5)
+			}
+		}()
+	}))
+
 	setupRoutes(app)
     app.Listen(":8080")
 }
