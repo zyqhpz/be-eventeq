@@ -3,9 +3,6 @@ package main
 import (
 	// model "example/be-eventeq/Models"
 
-	"log"
-	"time"
-
 	controller "github.com/zyqhpz/be-eventeq/Controllers"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -72,6 +69,9 @@ func setupRoutes(app *fiber.App) {
 	app.Post("/api/chat/messages/", controller.FetchMessages).Name("chat.fetchMessages")
 	app.Post("/api/chat/messages/send", controller.SendMessage).Name("chat.sendMessage")
 
+	// WebSocket route
+	app.Get("/ws", websocket.New(controller.WebSocketChat))
+
 	app.Post("/user/test/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Login Success"})
 	})
@@ -94,47 +94,6 @@ func main() {
 		AllowOrigins: "*",
 		AllowMethods: "GET, POST, PUT, DELETE",
 		AllowHeaders: "Origin, Content-Type, Accept",
-	}))
-
-		// WebSocket route
-	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
-		// Handle WebSocket connection
-
-		log.Println("New client connected")
-
-		// Read messages from the client
-		go func() {
-			for {
-				_, msg, err := c.ReadMessage()
-				if err != nil {
-					log.Println("Read error:", err)
-					return
-				}
-				log.Printf("Received message: %s\n", msg)
-
-				// Echo the message back to the client
-				err = c.WriteMessage(websocket.TextMessage, msg)
-				if err != nil {
-					log.Println("Write error:", err)
-					return
-				}
-			}
-		}()
-
-		// Write messages to the client
-		go func() {
-			for {
-				// Send a message to the client
-				err := c.WriteMessage(websocket.TextMessage, []byte("Hello, client!"))
-				if err != nil {
-					log.Println("Write error:", err)
-					return
-				}
-
-				// Sleep for some time before sending the next message
-				time.Sleep(time.Second * 5)
-			}
-		}()
 	}))
 
 	setupRoutes(app)

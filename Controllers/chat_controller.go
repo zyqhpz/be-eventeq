@@ -21,6 +21,7 @@ import (
 
 	// util "github.com/zyqhpz/be-eventeq/util"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -263,4 +264,45 @@ func FetchMessages(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(chats)
+}
+
+		// WebSocket route
+func WebSocketChat(c *websocket.Conn) {
+		// Handle WebSocket connection
+
+	log.Println("New client connected")
+
+	// Read messages from the client
+	go func() {
+		for {
+			_, msg, err := c.ReadMessage()
+			if err != nil {
+				log.Println("Read error:", err)
+				return
+			}
+			log.Printf("Received message: %s\n", msg)
+
+			// Echo the message back to the client
+			err = c.WriteMessage(websocket.TextMessage, msg)
+			if err != nil {
+				log.Println("Write error:", err)
+				return
+			}
+		}
+	}()
+
+	// Write messages to the client
+	go func() {
+		for {
+			// Send a message to the client
+			err := c.WriteMessage(websocket.TextMessage, []byte("Hello, client!"))
+			if err != nil {
+				log.Println("Write error:", err)
+				return
+			}
+
+			// Sleep for some time before sending the next message
+			time.Sleep(time.Second * 5)
+		}
+	}()
 }
