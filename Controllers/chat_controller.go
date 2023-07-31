@@ -3,6 +3,9 @@ package api
 import (
 	// "bytes"
 	"context"
+	"encoding/json"
+	"sync"
+
 	// "io"
 	"log"
 	// "mime/multipart"
@@ -266,43 +269,109 @@ func FetchMessages(c *fiber.Ctx) error {
 	return c.JSON(chats)
 }
 
-		// WebSocket route
-func WebSocketChat(c *websocket.Conn) {
-		// Handle WebSocket connection
+var clients = make(map[*websocket.Conn]bool)
+var clientsLock = sync.RWMutex{}
 
+// WebSocket route
+func WebSocketChat(c *websocket.Conn) {
+	// Handle WebSocket connection
 	log.Println("New client connected")
 
+	// Add the client to the map of connected clients
+	clientsLock.Lock()
+	clients[c] = true
+	clientsLock.Unlock()
+
+	defer func() {
+		log.Println("Closing client connection")
+		c.Close()
+
+		// Remove the client from the map of connected clients
+		clientsLock.Lock()
+		delete(clients, c)
+		clientsLock.Unlock()
+	}()
+
 	// Read messages from the client
-	go func() {
-		for {
-			_, msg, err := c.ReadMessage()
-			if err != nil {
+	for {
+		_, msg, err := c.ReadMessage()
+		if err != nil {
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 				log.Println("Read error:", err)
-				return
 			}
-			log.Printf("Received message: %s\n", msg)
+			break
+		}
 
-			// Echo the message back to the client
-			err = c.WriteMessage(websocket.TextMessage, msg)
+		// convert msg to JSON
+		var jsonMsg map[string]interface{}
+		err = json.Unmarshal([]byte(msg), &jsonMsg)
+		if err != nil {
+			log.Println("Error unmarshalling JSON:", err)
+			break
+		}
+
+		// get sender, receiver and message from JSON
+		sender := jsonMsg["sender"].(string)
+		receiver := jsonMsg["receiver"].(string)
+		message := jsonMsg["message"].(string)
+
+		// // convert sender and receiver to primitive.ObjectID
+		// senderOID, err := primitive.ObjectIDFromHex(sender)
+		// if err != nil {
+		// 	log.Println("Error converting sender to primitive.ObjectID:", err)
+		// 	break
+		// }
+
+		// receiverOID, err := primitive.ObjectIDFromHex(receiver)
+		// if err != nil {
+		// 	log.Println("Error converting receiver to primitive.ObjectID:", err)
+		// 	break
+		// }
+
+		// // create body
+		// type Body struct {
+		// 	ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		// 	Message  	string             	`bson:"message"`
+		// 	Sender	 	primitive.ObjectID 	`bson:"sender"`
+		// 	Receiver 	primitive.ObjectID 	`bson:"receiver"`
+		// 	CreatedAt 	time.Time 			`bson:"created_at"`
+		// }
+
+		// body := Body{
+		// 	ID: primitive.NewObjectID(),
+		// 	Message: jsonMsg["message"].(string),
+		// 	Sender: senderOID,
+		// 	Receiver: receiverOID,
+		// 	CreatedAt: util.GetCurrentTime(),
+		// }
+
+		// client, err  := db.ConnectDB()
+
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+
+		// ctx := context.Background()
+		// defer client.Disconnect(ctx)
+		// collectionChats := ConnectDBChats(client)
+
+		// // Insert new item into database
+		// _, err = collectionChats.InsertOne(ctx, body)
+		// if err != nil {
+		// 	log.Println("Error inserting new chat into database:", err)
+		// 	break
+		// }
+
+		log.Printf("Received message from id %s to id %s: %s", sender, receiver, message)
+
+		// Echo the message back to the client and broadcast to all clients
+		clientsLock.RLock()
+		for client := range clients {
+			err = client.WriteMessage(websocket.TextMessage, msg)
 			if err != nil {
 				log.Println("Write error:", err)
-				return
 			}
 		}
-	}()
-
-	// Write messages to the client
-	go func() {
-		for {
-			// Send a message to the client
-			err := c.WriteMessage(websocket.TextMessage, []byte("Hello, client!"))
-			if err != nil {
-				log.Println("Write error:", err)
-				return
-			}
-
-			// Sleep for some time before sending the next message
-			time.Sleep(time.Second * 5)
-		}
-	}()
+		clientsLock.RUnlock()
+	}
 }

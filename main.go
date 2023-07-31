@@ -82,12 +82,6 @@ func main() {
 		// EnablePrintRoutes: true,
 		// DisableStartupMessage: true,
 	})
-	
-	// app.Use(cors.New(
-	// 	cors.Config{
-	// 		AllowCredentials: true,
-	// 	},
-	// ))
 
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
