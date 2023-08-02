@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -77,9 +78,12 @@ func LoginUser(c *fiber.Ctx) error {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	
-	req := new(body)
-	if err := c.BodyParser(req); err != nil {
+
+	requestDump := fmt.Sprintf("%s", c.Request().Body())
+
+	var req body
+	err := json.Unmarshal([]byte(requestDump), &req)
+	if err != nil {
 		log.Println("Error parsing JSON request body:", err)
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
@@ -224,9 +228,12 @@ func RegisterUser(c *fiber.Ctx) error {
 		Email    	string `json:"email"`
 		Password 	string `json:"password"`
 	}
-	
-	req := new(body)
-	if err := c.BodyParser(req); err != nil {
+
+	requestDump := fmt.Sprintf("%s", c.Request().Body())
+
+	var req body
+	err := json.Unmarshal([]byte(requestDump), &req)
+	if err != nil {
 		log.Println("Error parsing JSON request body:", err)
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
