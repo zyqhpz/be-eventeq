@@ -315,59 +315,67 @@ func WebSocketChat(c *websocket.Conn) {
 		receiver := jsonMsg["receiver"].(string)
 		message := jsonMsg["message"].(string)
 
-		// // convert sender and receiver to primitive.ObjectID
-		// senderOID, err := primitive.ObjectIDFromHex(sender)
-		// if err != nil {
-		// 	log.Println("Error converting sender to primitive.ObjectID:", err)
-		// 	break
-		// }
+		// convert sender and receiver to primitive.ObjectID
+		senderOID, err := primitive.ObjectIDFromHex(sender)
+		if err != nil {
+			log.Println("Error converting sender to primitive.ObjectID:", err)
+			break
+		}
 
-		// receiverOID, err := primitive.ObjectIDFromHex(receiver)
-		// if err != nil {
-		// 	log.Println("Error converting receiver to primitive.ObjectID:", err)
-		// 	break
-		// }
+		receiverOID, err := primitive.ObjectIDFromHex(receiver)
+		if err != nil {
+			log.Println("Error converting receiver to primitive.ObjectID:", err)
+			break
+		}
 
-		// // create body
-		// type Body struct {
-		// 	ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
-		// 	Message  	string             	`bson:"message"`
-		// 	Sender	 	primitive.ObjectID 	`bson:"sender"`
-		// 	Receiver 	primitive.ObjectID 	`bson:"receiver"`
-		// 	CreatedAt 	time.Time 			`bson:"created_at"`
-		// }
+		// create body
+		type Body struct {
+			ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+			Message  	string             	`bson:"message"`
+			Sender	 	primitive.ObjectID 	`bson:"sender"`
+			Receiver 	primitive.ObjectID 	`bson:"receiver"`
+			CreatedAt 	time.Time 			`bson:"created_at"`
+		}
 
-		// body := Body{
-		// 	ID: primitive.NewObjectID(),
-		// 	Message: jsonMsg["message"].(string),
-		// 	Sender: senderOID,
-		// 	Receiver: receiverOID,
-		// 	CreatedAt: util.GetCurrentTime(),
-		// }
+		body := Body{
+			ID: primitive.NewObjectID(),
+			Message: jsonMsg["message"].(string),
+			Sender: senderOID,
+			Receiver: receiverOID,
+			CreatedAt: util.GetCurrentTimeUTC(),
+		}
 
-		// client, err  := db.ConnectDB()
+		client, err  := db.ConnectDB()
 
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		// ctx := context.Background()
-		// defer client.Disconnect(ctx)
-		// collectionChats := ConnectDBChats(client)
+		ctx := context.Background()
+		defer client.Disconnect(ctx)
+		collectionChats := ConnectDBChats(client)
 
-		// // Insert new item into database
-		// _, err = collectionChats.InsertOne(ctx, body)
-		// if err != nil {
-		// 	log.Println("Error inserting new chat into database:", err)
-		// 	break
-		// }
+		// Insert new item into database
+		_, err = collectionChats.InsertOne(ctx, body)
+		if err != nil {
+			log.Println("Error inserting new chat into database:", err)
+			break
+		}
 
 		log.Printf("Received message from id %s to id %s: %s", sender, receiver, message)
+
+		response := map[string]interface{}{
+			"sender": sender,
+			"receiver": receiver,
+			"message": message,
+		}
+
+		res, _ := json.Marshal(response)
 
 		// Echo the message back to the client and broadcast to all clients
 		clientsLock.RLock()
 		for client := range clients {
-			err = client.WriteMessage(websocket.TextMessage, msg)
+			err = client.WriteMessage(websocket.TextMessage, res)
 			if err != nil {
 				log.Println("Write error:", err)
 			}
