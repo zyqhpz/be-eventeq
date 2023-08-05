@@ -342,7 +342,7 @@ func WebSocketChat(c *websocket.Conn) {
 			Message: jsonMsg["message"].(string),
 			Sender: senderOID,
 			Receiver: receiverOID,
-			CreatedAt: util.GetCurrentTime(),
+			CreatedAt: util.GetCurrentTimeUTC(),
 		}
 
 		client, err  := db.ConnectDB()
