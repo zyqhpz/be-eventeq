@@ -8,6 +8,7 @@ import (
 	controller "github.com/zyqhpz/be-eventeq/Controllers"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
@@ -70,6 +71,9 @@ func setupRoutes(app *fiber.App) {
 	app.Post("/api/chat/messages/", controller.FetchMessages).Name("chat.fetchMessages")
 	app.Post("/api/chat/messages/send", controller.SendMessage).Name("chat.sendMessage")
 
+	// WebSocket route
+	app.Get("/ws", websocket.New(controller.WebSocketChat))
+
 	app.Post("/user/test/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Login Success"})
 	})
@@ -81,6 +85,15 @@ func main() {
 		// DisableStartupMessage: true,
 	})
 
+
+	app.Use(cors.New(cors.Config{
+		AllowCredentials: true,
+		AllowOrigins: "*",
+		AllowMethods: "GET, POST, PUT, DELETE",
+		AllowHeaders: "Origin, Content-Type, Accept",
+	}))
+
+
 	port := os.Getenv("PORT")
 
 	if port == "" {
@@ -88,11 +101,12 @@ func main() {
 	}
 
 	
-	app.Use(cors.New(
-		cors.Config{
-			AllowCredentials: true,
-		},
-	))
+
+		
+			
+		
+
+
 	setupRoutes(app)
 	log.Fatal(app.Listen("0.0.0.0:" + port))
     // app.Listen(":8080")
