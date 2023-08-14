@@ -80,14 +80,20 @@ func main() {
 		// EnablePrintRoutes: true,
 		// DisableStartupMessage: true,
 	})
-
+	
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
 		AllowOrigins: "*",
 		AllowMethods: "GET, POST, PUT, DELETE",
 		AllowHeaders: "Origin, Content-Type, Accept",
 	}))
-
+	
+	port := os.Getenv("PORT")
+	
+	if port == "" {
+		port = "8080"
+	}
+	
 	setupRoutes(app)
-    app.Listen(":8080")
+	log.Fatal(app.Listen("0.0.0.0:" + port))
 }
