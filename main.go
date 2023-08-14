@@ -1,10 +1,6 @@
 package main
 
 import (
-	"context"
-	"log"
-	"os"
-
 	controller "github.com/zyqhpz/be-eventeq/Controllers"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -85,7 +81,6 @@ func main() {
 		// DisableStartupMessage: true,
 	})
 
-
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
 		AllowOrigins: "*",
@@ -93,21 +88,6 @@ func main() {
 		AllowHeaders: "Origin, Content-Type, Accept",
 	}))
 
-
-	port := os.Getenv("PORT")
-
-	if port == "" {
-		port = "8080"
-	}
-
-	
-
-		
-			
-		
-
-
 	setupRoutes(app)
-	log.Fatal(app.Listen("0.0.0.0:" + port))
-    // app.Listen(":8080")
+    app.Listen(":8080")
 }

@@ -1,16 +1,10 @@
 package api
 
 import (
-	// "bytes"
 	"context"
 	"encoding/json"
 	"sync"
-
-	// "io"
 	"log"
-	// "mime/multipart"
-	// "strconv"
-
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
@@ -18,11 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-
-	// "go.mongodb.org/mongo-driver/mongo/gridfs"
-	// "go.mongodb.org/mongo-driver/mongo/options"
-
-	// util "github.com/zyqhpz/be-eventeq/util"
 
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
