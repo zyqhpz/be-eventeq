@@ -1,9 +1,10 @@
 package main
 
 import (
+	"log"
+	"os"
 	controller "github.com/zyqhpz/be-eventeq/Controllers"
 	"go.mongodb.org/mongo-driver/mongo"
-
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
