@@ -3,9 +3,12 @@ package api
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
@@ -14,18 +17,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/gridfs"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/gofiber/fiber/v2"
 )
-
-type RegisterUserRequest struct {
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Password  string `json:"password"`
-	Email     string `json:"email"`
-}
 
 /*
 	* Connect to the "users" collection
@@ -80,9 +78,12 @@ func LoginUser(c *fiber.Ctx) error {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	
-	req := new(body)
-	if err := c.BodyParser(req); err != nil {
+
+	requestDump := fmt.Sprintf("%s", c.Request().Body())
+
+	var req body
+	err := json.Unmarshal([]byte(requestDump), &req)
+	if err != nil {
 		log.Println("Error parsing JSON request body:", err)
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
@@ -158,8 +159,6 @@ func LoginUser(c *fiber.Ctx) error {
 func LoginUserAuth(c *fiber.Ctx) error {
 	cookie := c.Cookies("jwt")
 
-	// fmt.Println(cookie)
-
 	if cookie == "" {
 		return c.JSON(fiber.Map{"status": "failed", "message": "Not logged in"})
 	}
@@ -223,8 +222,18 @@ func LogoutUser(c *fiber.Ctx) error {
 */
 func RegisterUser(c *fiber.Ctx) error {
 
-	req := new(RegisterUserRequest)
-	if err := c.BodyParser(req); err != nil {
+	type body struct {
+		FirstName 	string `json:"firstName"`
+		LastName 	string `json:"lastName"`
+		Email    	string `json:"email"`
+		Password 	string `json:"password"`
+	}
+
+	requestDump := fmt.Sprintf("%s", c.Request().Body())
+
+	var req body
+	err := json.Unmarshal([]byte(requestDump), &req)
+	if err != nil {
 		log.Println("Error parsing JSON request body:", err)
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
@@ -314,49 +323,147 @@ func GetUserById(c *fiber.Ctx) error {
 }
 
 /*
-	* PUT /api/user/:id
+	* PUT /api/user/update/:id
 	* Update a user by id
 */
 func UpdateUserById(c *fiber.Ctx) error {
-	// Email is unique, so we can use it to find the user
-	email := c.Params("email")
 
-	first_name := c.FormValue("first_name")
-	last_name := c.FormValue("last_name")
-	username := c.FormValue("username")
+	userId := c.Params("id")
+
+	uid , err := primitive.ObjectIDFromHex(userId)
+
+	if err != nil {
+	}
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		return err
+	}
+
+	first_name := form.Value["firstName"][0]
+	last_name := form.Value["lastName"][0]
+	email := form.Value["email"][0]
+	no_phone := form.Value["noPhone"][0]
+	state := form.Value["state"][0]
+	district := form.Value["district"][0]
+
+	profileImageChanged, _ := strconv.ParseBool(form.Value["profileImageChanged"][0]) // true or false
 
 	client, _  := db.ConnectDB()
 	ctx := context.Background()
 	defer client.Disconnect(ctx)
 
-	collection := ConnectDBUsers(client)
+	userCollection := ConnectDBUsers(client)
 
-	// Define a filter to find the user with the given email
-	filter := bson.M{"email": email}
+	if (profileImageChanged) {
 
-	// Count the number of documents that match the filter
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	count, _ := collection.CountDocuments(ctx, filter)
+		file, err := c.FormFile("profileImage")
+		if err != nil {
+			return err
+		}
+		
+		db := client.Database("eventeq")
+		bucket, err := gridfs.NewBucket(db, options.GridFSBucket().SetName("images"))
 
-	// Return true if a user with the given id was found, false otherwise
-	if (count > 0) {
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		oldImageID, err := GetUserImageByUserID(uid)
+		if err != nil {
+			return err
+		}
+
+		if (oldImageID != primitive.NilObjectID) {
+			err = RemoveUserImageByID(oldImageID)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Open the file
+		src, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+
+		// Create a new upload stream
+		uploadStream, err := bucket.OpenUploadStream(file.Filename)
+		if err != nil {
+			return err
+		}
+		defer uploadStream.Close()
+
+		// Copy the file data to the upload stream
+		_, err = io.Copy(uploadStream, src)
+		if err != nil {
+			return err
+		}
+
+		// Get the ID of the uploaded file
+		fileID := uploadStream.FileID.(primitive.ObjectID)
+
+		log.Println("file " + file.Filename + " uploaded successfully")
+		
+
+		// Define a filter to find the user with the given email
+		filter := bson.M{"_id": uid}
+
+		location := model.Location{
+			State: state,
+			District: district,
+		}
+
 		// Update the user with the given id
 		update := bson.M{"$set": bson.M{
 			"first_name": first_name,
 			"last_name": last_name,
-			"username": username,
+			"email": email,
+			"no_phone": no_phone,
+			"location": location,
+			"isAvatarImageSet": true,
+			"profile_image": fileID,
 			"updated_at": util.GetCurrentTime(),
 		}}
 
 		// Update the user in the database
-		_, err := collection.UpdateOne(ctx, filter, update)
+		res, err := userCollection.UpdateOne(context.Background(), filter, update)
 		if err != nil {
 			log.Fatal(err)
 		}
-		return c.JSON(fiber.Map{"status": "success", "message": "User updated successfully"})
+
+		log.Println("[USER] User updated: ", res.UpsertedID, " ", email)
+	} else {
+		
+		// Define a filter to find the user with the given email
+		filter := bson.M{"_id": uid}
+
+		location := model.Location{
+			State: state,
+			District: district,
+		}
+
+		// Update the user with the given id
+		update := bson.M{"$set": bson.M{
+			"first_name": first_name,
+			"last_name": last_name,
+			"email": email,
+			"no_phone": no_phone,
+			"location": location,
+			"updated_at": util.GetCurrentTime(),
+		}}
+
+		// Update the user in the database
+		res, err := userCollection.UpdateOne(context.Background(), filter, update)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Println("[USER] User updated: ", res.UpsertedID, " ", email)
 	}
-	return c.JSON(fiber.Map{"status": "failed", "message": "User not found"})
+
+	return c.JSON(fiber.Map{"status": "success", "message": "User updated successfully"})
 }
 
 /*
@@ -438,3 +545,59 @@ func DeleteUserById(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"status": "failed", "message": "User not found"})
 }
 
+func GetUserImageByUserID(id primitive.ObjectID) (primitive.ObjectID, error) {
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the users collection from the database
+	usersCollection := ConnectDBUsers(client)
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	// Query for the Item document and filter by the User ID in ownedBy
+	var User struct {
+		Image primitive.ObjectID `bson:"profile_image"`
+	}
+	err = usersCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&User)
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return primitive.ObjectID{}, err
+		}
+		// Return an error response if there is a database error
+		return primitive.ObjectID{}, err
+	}
+
+	return User.Image, nil
+}
+
+func RemoveUserImageByID(id primitive.ObjectID) error {
+	client, err  := db.ConnectDB()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+	defer client.Disconnect(ctx)
+
+	db := client.Database("eventeq")
+	bucket, err := gridfs.NewBucket(db, options.GridFSBucket().SetName("images"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Delete document matching a specific condition
+	err = bucket.Delete(id)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("[USER] User image deleted: ", id)
+
+	return nil
+}
