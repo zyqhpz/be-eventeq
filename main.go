@@ -67,6 +67,9 @@ func setupRoutes(app *fiber.App) {
 	app.Post("/api/chat/messages/", controller.FetchMessages).Name("chat.fetchMessages")
 	app.Post("/api/chat/messages/send", controller.SendMessage).Name("chat.sendMessage")
 
+	/* Payment */
+	app.Get("/api/payment/redirect", controller.HandleRedirectUrl).Name("payment.redirect")
+
 	// WebSocket route
 	app.Get("/ws", websocket.New(controller.WebSocketChat))
 

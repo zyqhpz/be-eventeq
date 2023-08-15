@@ -9,14 +9,14 @@ import (
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
+	model "github.com/zyqhpz/be-eventeq/Models"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/gofiber/fiber/v2"
-
-	model "github.com/zyqhpz/be-eventeq/Models"
 )
 
 /*

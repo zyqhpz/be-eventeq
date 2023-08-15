@@ -11,8 +11,11 @@ import (
 
 	db "github.com/zyqhpz/be-eventeq/Database"
 	model "github.com/zyqhpz/be-eventeq/Models"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type Item struct {
@@ -39,8 +42,9 @@ type Booking struct {
 
 func CreatePaymentBillCode(booking *Booking) (string, error) {
 
-	redirectUrl := "https://fe-eventeq.vercel.com/"
-	callbackUrl := "https://fe-eventeq.vercel.com/"
+	redirectUrl := "https://fe-eventeq.vercel.com/payment/redirect"
+	// redirectUrl := "localhost:5173/payment/redirect"
+	callbackUrl := "https://be-eventeq-production.up.railway.app/api/payment/callback"
 
 	// convert booking.GrandTotal to cents
 	amount := booking.GrandTotal * 100
@@ -55,8 +59,6 @@ func CreatePaymentBillCode(booking *Booking) (string, error) {
 	ctx := context.Background()
 
 	filter := bson.M{"_id": booking.UserID}
-
-	log.Print(booking.UserID)
 
 	var user model.User
 	err = usersCollection.FindOne(ctx, filter).Decode(&user)
@@ -129,5 +131,126 @@ func CreatePaymentBillCode(booking *Booking) (string, error) {
 	return response.BillCode, nil
 }
 
+func UpdatePaymentStatus(booking *Booking) error {
 
-// rediirect URL Parameter ?status_id=1&billcode=bcweidjq&order_id=AFR341DFI&msg=ok&transaction_id=TP2308153866893011
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	filter := bson.M{"_id": booking.ID}
+
+	update := bson.M{
+		"$set": bson.M{
+			"status": booking.Status,
+		},
+	}
+
+	_, err = bookingsCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return nil
+}
+
+func HandleRedirectUrl(c *fiber.Ctx) error {
+
+	// rediirect URL Parameter ?status_id=1&billcode=bcweidjq&order_id=AFR341DFI&msg=ok&transaction_id=TP2308153866893011
+
+	statusId := c.Query("status_id") // 1=success, 2=pending, 3=fail
+	billCode := c.Query("billcode") // billcode
+	orderId := c.Query("order_id") // order_id
+	msg := c.Query("msg")
+
+	log.Print(statusId)
+	log.Print(billCode)
+	log.Print(orderId)
+	log.Print(msg)
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+	})
+}
+
+func HandleCallbackUrl(c *fiber.Ctx) error {
+	/*
+	Please note that Callback URL cannot be received in localhost. Callback URL will be supplied with the following datas in POST format:-
+
+	refno : Payment reference no
+
+	status : Payment status. 1= success, 2=pending, 3=fail
+
+	reason : Reason for the status received
+
+	billcode : Your billcode / permanent link
+
+	order_id : Your external payment reference no, if specified
+
+	amount : Payment amount received
+
+	transaction_time : Datetime of the transaction status received.
+	*/
+
+	// get data from request body
+	var data struct {
+		RefNo 			string 	`json:"refno"`
+		Status 			string 	`json:"status"`
+		Reason 			string 	`json:"reason"`
+		BillCode 		string 	`json:"billcode"`
+		OrderId 		string 	`json:"order_id"`
+		Amount 			string 	`json:"amount"`
+		TransactionTime string 	`json:"transaction_time"`
+	}
+
+	err := c.BodyParser(&data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Print(data.RefNo)
+	log.Print(data.Status)
+	log.Print(data.Reason)
+	log.Print(data.BillCode)
+	log.Print(data.OrderId)
+	log.Print(data.Amount)
+	log.Print(data.TransactionTime)
+
+	// get booking ID from data.BillCode
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bookingsCollection := ConnectDBBookings(client)
+
+	ctx := context.Background()
+
+	filter := bson.M{"_id": data.BillCode}
+
+	var booking Booking
+	err = bookingsCollection.FindOne(ctx, filter).Decode(&booking)
+	if err != nil {
+		log.Print("Error getting booking:")
+		log.Fatal(err)
+	}
+
+	// update booking status based on data.Status
+	if data.Status == "1" {
+		booking.Status = 1
+	}
+
+	err = UpdatePaymentStatus(&booking)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+	})
+}
+
