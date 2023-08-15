@@ -116,29 +116,31 @@ func CreateNewBooking(c *fiber.Ctx) error {
 		log.Println("error", err)
 	}
 
-	type Item struct {
-		ItemID 		primitive.ObjectID 	`bson:"id"`
-		Name		string				`bson:"name"`
-		Price		float64 			`bson:"price"`
-		Quantity 	int32 				`bson:"quantity"`
-	}
+	// type Item struct {
+	// 	ItemID 		primitive.ObjectID 	`bson:"id"`
+	// 	Name		string				`bson:"name"`
+	// 	Price		float64 			`bson:"price"`
+	// 	Quantity 	int32 				`bson:"quantity"`
+	// }
 
-	type Booking struct {
-		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
-		UserID 		primitive.ObjectID 	`bson:"user_id"`
-		OwnerID		primitive.ObjectID 	`bson:"owner_id"`
-		Items 		[]Item 				`bson:"items"`
-		StartDate 	string 				`bson:"start_date"`
-		EndDate 	string 				`bson:"end_date"`
-		SubTotal 	float64 			`bson:"sub_total"`
-		ServiceFee 	float64 			`bson:"service_fee"`
-		GrandTotal 	float64 			`bson:"grand_total"`
-		Status 		int32 				`bson:"status"`
-		CreatedAt 	time.Time 			`bson:"created_at"`
-		UpdatedAt 	time.Time 			`bson:"updated_at"`
-	}
+	// type Booking struct {
+	// 	ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+	// 	UserID 		primitive.ObjectID 	`bson:"user_id"`
+	// 	OwnerID		primitive.ObjectID 	`bson:"owner_id"`
+	// 	Items 		[]Item 				`bson:"items"`
+	// 	StartDate 	string 				`bson:"start_date"`
+	// 	EndDate 	string 				`bson:"end_date"`
+	// 	SubTotal 	float64 			`bson:"sub_total"`
+	// 	ServiceFee 	float64 			`bson:"service_fee"`
+	// 	GrandTotal 	float64 			`bson:"grand_total"`
+	// 	Status 		int32 				`bson:"status"`
+	// 	CreatedAt 	time.Time 			`bson:"created_at"`
+	// 	UpdatedAt 	time.Time 			`bson:"updated_at"`
+	// }
 	
 	booking := new(Booking)
+
+	// log.Println(bodyMap)
 	
 	// Parse the user_id as a string
 	if userID, ok := bodyMap["user_id"].(string); ok {
@@ -201,14 +203,14 @@ func CreateNewBooking(c *fiber.Ctx) error {
 		return fmt.Errorf("grand_total is not a float64")
 	}
 
-	client, err := db.ConnectDB()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// client, err := db.ConnectDB()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	// Select the `bookings` collection from the database
-	collection := ConnectDBBookings(client)
-	ctx := context.Background()
+	// collection := ConnectDBBookings(client)
+	// ctx := context.Background()
 
 	if (bodyMap["items"] != nil) {
 		items := bodyMap["items"].([]interface{})
@@ -243,22 +245,37 @@ func CreateNewBooking(c *fiber.Ctx) error {
 	booking.CreatedAt = time.Now()
 	booking.UpdatedAt = time.Now()
 
-	// Insert the `bookings` document in the database
-	result, err := collection.InsertOne(ctx, booking)
+
+	// // Insert the `bookings` document in the database
+	// result, err := collection.InsertOne(ctx, booking)
+	// if err != nil {
+	// 	// Return an error response if there is a database error
+	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		"message": "Failed to create booking",
+	// 	})
+	// }
+
+
+	// defer client.Disconnect(ctx)
+
+	// get the inserted booking id
+	// bookingID := result.InsertedID.(primitive.ObjectID).Hex()
+
+	billCode, err := CreatePaymentBillCode(booking)
+
 	if err != nil {
-		// Return an error response if there is a database error
+		log.Print(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "Failed to create booking",
+			"message": "Failed to create payment bill code",
 		})
 	}
-
-	defer client.Disconnect(ctx)
 
 	// Return a success response
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Booking created",
-		"data": result,
+		// "data": result,
+		"bill_code": billCode,
 	})
 }
 
