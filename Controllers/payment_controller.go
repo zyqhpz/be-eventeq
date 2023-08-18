@@ -42,7 +42,7 @@ type Booking struct {
 
 func CreatePaymentBillCode(booking *Booking) (string, error) {
 
-	redirectUrl := "https://fe-eventeq.vercel.com/payment/redirect"
+	redirectUrl := "https://fe-eventeq.vercel.app/payment/redirect"
 	// redirectUrl := "localhost:5173/payment/redirect"
 	callbackUrl := "https://be-eventeq-production.up.railway.app/api/payment/callback"
 
@@ -254,3 +254,47 @@ func HandleCallbackUrl(c *fiber.Ctx) error {
 	})
 }
 
+func HandleSetInactive(c *fiber.Ctx) error {
+
+	// get booking ID from request body
+	var data struct {
+		BookingID string `json:"booking_id"`
+	}
+
+	err := c.BodyParser(&data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// get booking from database
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bookingsCollection := ConnectDBBookings(client)
+
+	ctx := context.Background()
+
+	filter := bson.M{"_id": data.BookingID}
+
+	var booking Booking
+	err = bookingsCollection.FindOne(ctx, filter).Decode(&booking)
+	if err != nil {
+		log.Print("Error getting booking:")
+		log.Fatal(err)
+	}
+
+	// set booking status to 0
+	booking.Status = 0
+
+	err = UpdatePaymentStatus(&booking)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+	})
+}
