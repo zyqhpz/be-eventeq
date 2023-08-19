@@ -69,6 +69,7 @@ func setupRoutes(app *fiber.App) {
 
 	/* Payment */
 	app.Get("/api/payment/redirect", controller.HandleRedirectUrl).Name("payment.redirect")
+	app.Post("/api/payment/callback", controller.HandleCallbackUrl).Name("payment.callback")
 
 	// WebSocket route
 	app.Get("/ws", websocket.New(controller.WebSocketChat))
