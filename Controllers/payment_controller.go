@@ -36,6 +36,7 @@ type Booking struct {
 	ServiceFee 	float64 			`bson:"service_fee"`
 	GrandTotal 	float64 			`bson:"grand_total"`
 	Status 		int32 				`bson:"status"`
+	BillCode	string 				`bson:"bill_code"`
 	CreatedAt 	time.Time 			`bson:"created_at"`
 	UpdatedAt 	time.Time 			`bson:"updated_at"`
 }
