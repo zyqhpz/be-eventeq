@@ -245,7 +245,9 @@ func HandleCallbackUrl(c *fiber.Ctx) error {
 
 	// update booking status based on data.Status
 	if req.Status == "1" {
-		booking.Status = 1
+		booking.Status = 0
+	} else {
+		booking.Status = -1
 	}
 
 	err = UpdatePaymentStatus(&booking)
