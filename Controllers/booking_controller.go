@@ -199,24 +199,25 @@ func GetBookingsByItemId(c *fiber.Ctx) error {
                 filteredItems = append(filteredItems, item)
             }
         }
+		
         if len(filteredItems) > 0 {
             booking.Items = filteredItems
             bookings = append(bookings, booking)
+
+			// append booking to response
+			var res Response
+			res.ID = booking.ID
+			res.Items = filteredItems
+			res.StartDate = booking.StartDate
+			res.EndDate = booking.EndDate
+	
+			// get duration of booking in days (end date - start date)
+			duration, _ := CalculateDurationInDays(booking.StartDate, booking.EndDate)
+	
+			res.Duration = int32(duration)
+			res.CreatedAt = booking.CreatedAt
+			response = append(response, res)
         }
-
-		// append booking to response
-		var res Response
-		res.ID = booking.ID
-		res.Items = filteredItems
-		res.StartDate = booking.StartDate
-		res.EndDate = booking.EndDate
-
-		// get duration of booking in days (end date - start date)
-		duration, _ := CalculateDurationInDays(booking.StartDate, booking.EndDate)
-
-		res.Duration = int32(duration)
-		res.CreatedAt = booking.CreatedAt
-		response = append(response, res)
     }
 
 	// Sort the response based on StartDate
