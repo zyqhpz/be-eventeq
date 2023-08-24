@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"sync"
 	"log"
+	"sync"
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
@@ -40,10 +40,12 @@ func GetChatUsers(c *fiber.Ctx) error {
 	oid, err := primitive.ObjectIDFromHex(id)
 
 	type Body struct {
-		ID        primitive.ObjectID 	`bson:"_id,omitempty"`
-		FirstName string             	`bson:"first_name"`
-		LastName  string             	`bson:"last_name"`
-		Email     string             	`bson:"email"`
+		ID        			primitive.ObjectID 	`bson:"_id,omitempty"`
+		FirstName 			string             	`bson:"first_name"`
+		LastName  			string             	`bson:"last_name"`
+		Email     			string             	`bson:"email"`
+		IsAvatarImageSet 	bool 				`bson:"isAvatarImageSet"`
+		ProfileImage     	primitive.ObjectID	`bson:"profile_image"`
 
 		// Timestamp
 		CreatedAt time.Time 			`bson:"created_at"`
