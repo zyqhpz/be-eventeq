@@ -108,6 +108,146 @@ func GetItemDetailsForBooking(c *fiber.Ctx) error {
 	return c.JSON(body)
 }
 
+/*
+	* GET /api/item/:id/booking
+	* Get bookings by Item ID
+*/
+func GetBookingsByItemId(c *fiber.Ctx) error {
+    // Retrieve the `id` parameter from the request URL
+    idParam := c.Params("itemId")
+
+    // Convert the `id` parameter to a MongoDB `ObjectID`
+    id, err := primitive.ObjectIDFromHex(idParam)
+    if err != nil {
+        // Return an error response if the `id` parameter is not a valid `ObjectID`
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+            "message": "Invalid item ID",
+        })
+    }
+
+	type Item struct {
+		ItemID 		primitive.ObjectID 	`bson:"id"`
+		Quantity 	int32 				`bson:"quantity"`
+	}
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		UserID 		primitive.ObjectID 	`bson:"user_id"`
+		OwnerID		primitive.ObjectID 	`bson:"owner_id"`
+		Items 		[]Item 				`bson:"items"`
+		StartDate 	string 				`bson:"start_date"`
+		EndDate 	string 				`bson:"end_date"`
+		SubTotal 	float64 			`bson:"sub_total"`
+		ServiceFee 	float64 			`bson:"service_fee"`
+		GrandTotal 	float64 			`bson:"grand_total"`
+		Status 		int32 				`bson:"status"`
+		BillCode 	string 				`bson:"bill_code"`
+		CreatedAt 	time.Time 			`bson:"created_at"`
+		UpdatedAt 	time.Time 			`bson:"updated_at"`
+	}
+
+	type Response struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		Items 		[]Item 				`bson:"items"`
+		StartDate 	string 				`bson:"start_date"`
+		EndDate 	string 				`bson:"end_date"`
+		Duration 	int32 				`bson:"duration"`
+		CreatedAt 	time.Time 			`bson:"created_at"`
+	}
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	// filter status = 3
+	filter := bson.M{"status": bson.M{"$in": []int32{3}}}
+
+	// Query for the booking all
+	cursor, err := bookingsCollection.Find(ctx, filter)
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Booking not found",
+			})
+		}
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to get booking from database",
+		})
+	}
+	defer cursor.Close(ctx)
+
+    // Iterate through the documents and extract the relevant information
+    var bookings []Booking
+	var response []Response
+    for cursor.Next(ctx) {
+        var booking Booking
+        if err := cursor.Decode(&booking); err != nil {
+            log.Fatal(err)
+        }
+
+        // Filter items in the booking to only include those with the specified item ID
+        var filteredItems []Item
+        for _, item := range booking.Items {
+            if item.ItemID == id {
+                filteredItems = append(filteredItems, item)
+            }
+        }
+		
+        if len(filteredItems) > 0 {
+            booking.Items = filteredItems
+            bookings = append(bookings, booking)
+
+			// append booking to response
+			var res Response
+			res.ID = booking.ID
+			res.Items = filteredItems
+			res.StartDate = booking.StartDate
+			res.EndDate = booking.EndDate
+	
+			// get duration of booking in days (end date - start date)
+			duration, _ := CalculateDurationInDays(booking.StartDate, booking.EndDate)
+	
+			res.Duration = int32(duration)
+			res.CreatedAt = booking.CreatedAt
+			response = append(response, res)
+        }
+    }
+
+	// Sort the response based on StartDate
+    sort.Slice(response, func(i, j int) bool {
+        startDateI, _ := time.Parse("02/01/2006", response[i].StartDate)
+        startDateJ, _ := time.Parse("02/01/2006", response[j].StartDate)
+        return startDateI.After(startDateJ)
+    })
+
+    return c.JSON(response)
+}
+
+func CalculateDurationInDays(startDateStr, endDateStr string) (int, error) {
+	layout := "02/01/2006" // The format of the input date strings
+	startDate, err := time.Parse(layout, startDateStr)
+	if err != nil {
+		return 0, err
+	}
+
+	endDate, err := time.Parse(layout, endDateStr)
+	if err != nil {
+		return 0, err
+	}
+
+	duration := endDate.Sub(startDate)
+	days := int(duration.Hours() / 24) + 1 // Convert duration to days
+
+	return days, nil
+}
+
 func CreateNewBooking(c *fiber.Ctx) error {
 	bodyBytes := c.Body()
 	var bodyMap map[string]interface{}
@@ -115,32 +255,8 @@ func CreateNewBooking(c *fiber.Ctx) error {
 	if err != nil {
 		log.Println("error", err)
 	}
-
-	// type Item struct {
-	// 	ItemID 		primitive.ObjectID 	`bson:"id"`
-	// 	Name		string				`bson:"name"`
-	// 	Price		float64 			`bson:"price"`
-	// 	Quantity 	int32 				`bson:"quantity"`
-	// }
-
-	// type Booking struct {
-	// 	ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
-	// 	UserID 		primitive.ObjectID 	`bson:"user_id"`
-	// 	OwnerID		primitive.ObjectID 	`bson:"owner_id"`
-	// 	Items 		[]Item 				`bson:"items"`
-	// 	StartDate 	string 				`bson:"start_date"`
-	// 	EndDate 	string 				`bson:"end_date"`
-	// 	SubTotal 	float64 			`bson:"sub_total"`
-	// 	ServiceFee 	float64 			`bson:"service_fee"`
-	// 	GrandTotal 	float64 			`bson:"grand_total"`
-	// 	Status 		int32 				`bson:"status"`
-	// 	CreatedAt 	time.Time 			`bson:"created_at"`
-	// 	UpdatedAt 	time.Time 			`bson:"updated_at"`
-	// }
 	
 	booking := new(Booking)
-
-	// log.Println(bodyMap)
 	
 	// Parse the user_id as a string
 	if userID, ok := bodyMap["user_id"].(string); ok {
@@ -203,14 +319,14 @@ func CreateNewBooking(c *fiber.Ctx) error {
 		return fmt.Errorf("grand_total is not a float64")
 	}
 
-	// client, err := db.ConnectDB()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Select the `bookings` collection from the database
-	// collection := ConnectDBBookings(client)
-	// ctx := context.Background()
+	collection := ConnectDBBookings(client)
+	ctx := context.Background()
 
 	if (bodyMap["items"] != nil) {
 		items := bodyMap["items"].([]interface{})
@@ -245,21 +361,24 @@ func CreateNewBooking(c *fiber.Ctx) error {
 	booking.CreatedAt = time.Now()
 	booking.UpdatedAt = time.Now()
 
+	// init bill_code with empty string
+	booking.BillCode = ""
 
-	// // Insert the `bookings` document in the database
-	// result, err := collection.InsertOne(ctx, booking)
-	// if err != nil {
-	// 	// Return an error response if there is a database error
-	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-	// 		"message": "Failed to create booking",
-	// 	})
-	// }
+	// Insert the `bookings` document in the database
+	result, err := collection.InsertOne(ctx, booking)
+	if err != nil {
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to create booking",
+		})
+	}
 
-
-	// defer client.Disconnect(ctx)
+	defer client.Disconnect(ctx)
 
 	// get the inserted booking id
-	// bookingID := result.InsertedID.(primitive.ObjectID).Hex()
+	bookingID := result.InsertedID.(primitive.ObjectID).Hex()
+
+	booking.ID, _ = primitive.ObjectIDFromHex(bookingID)
 
 	billCode, err := CreatePaymentBillCode(booking)
 
@@ -270,13 +389,42 @@ func CreateNewBooking(c *fiber.Ctx) error {
 		})
 	}
 
+	AddPaymentBillCode(booking)
+
 	// Return a success response
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Booking created",
-		// "data": result,
 		"bill_code": billCode,
 	})
+}
+
+// add BillCode to booking
+func AddPaymentBillCode(booking *Booking) {
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	// update booking in database
+	bookingsCollection := ConnectDBBookings(client)
+
+	// update booking in database
+	updateResult, err := bookingsCollection.UpdateOne(
+		ctx,
+		bson.M{"_id": booking.ID},
+		bson.D{
+			{Key: "$set", Value: bson.D{{Key: "bill_code", Value: booking.BillCode}}},
+		},
+	)
+	if err != nil {
+		log.Print("Error updating booking in database:")
+		log.Print(updateResult)
+		log.Fatal(err)
+	}
 }
 
 func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
@@ -308,6 +456,7 @@ func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 		ServiceFee 	float64 			`bson:"service_fee"`
 		GrandTotal 	float64 			`bson:"grand_total"`
 		Status 		int32 				`bson:"status"`
+		BillCode 	string 				`bson:"bill_code"`
 		CreatedAt 	time.Time 			`bson:"created_at"`
 		UpdatedAt 	time.Time 			`bson:"updated_at"`
 	}
@@ -321,8 +470,8 @@ func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 	bookingsCollection := ConnectDBBookings(client)
 	ctx := context.Background()
 
-	// add filter by status = 0 (upcoming) only
-	filter := bson.M{"user_id": uid, "status": 0}
+	// add filter by status = 0 (upcoming) and -1 (unpaid)
+	filter := bson.M{"user_id": uid, "status": bson.M{"$in": []int32{0, -1}}}
 
 	// Query for the Item document and filter by the User ID in ownedBy
 	cursor, err := bookingsCollection.Find(ctx, filter)

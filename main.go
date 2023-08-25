@@ -41,6 +41,8 @@ func setupRoutes(app *fiber.App) {
 	app.Get("/api/itemsWithUser", controller.GetItemsWithUser).Name("item.getWithUser")
 	app.Get("/api/itemsActiveWithUser", controller.GetItemsActiveWithUser).Name("item.getActiveWithUser")
 
+	app.Get("/api/item/:itemId/booking", controller.GetBookingsByItemId).Name("item.getBookingsByItemId")
+
 	/* Booking */
 	app.Get("/api/itemsForBooking/:ownerId", controller.GetItemDetailsForBooking).Name("booking.getItemDetailsForBooking")
 	app.Post("/api/booking/create", controller.CreateNewBooking).Name("booking.create")
@@ -70,6 +72,7 @@ func setupRoutes(app *fiber.App) {
 
 	/* Payment */
 	app.Get("/api/payment/redirect", controller.HandleRedirectUrl).Name("payment.redirect")
+	app.Post("/api/payment/callback", controller.HandleCallbackUrl).Name("payment.callback")
 
 	// WebSocket route
 	app.Get("/ws", websocket.New(controller.WebSocketChat))

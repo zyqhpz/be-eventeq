@@ -36,6 +36,7 @@ type Booking struct {
 	ServiceFee 	float64 			`bson:"service_fee"`
 	GrandTotal 	float64 			`bson:"grand_total"`
 	Status 		int32 				`bson:"status"`
+	BillCode	string 				`bson:"bill_code"`
 	CreatedAt 	time.Time 			`bson:"created_at"`
 	UpdatedAt 	time.Time 			`bson:"updated_at"`
 }
@@ -196,7 +197,7 @@ func HandleCallbackUrl(c *fiber.Ctx) error {
 	*/
 
 	// get data from request body
-	var data struct {
+	type body struct {
 		RefNo 			string 	`json:"refno"`
 		Status 			string 	`json:"status"`
 		Reason 			string 	`json:"reason"`
@@ -206,18 +207,22 @@ func HandleCallbackUrl(c *fiber.Ctx) error {
 		TransactionTime string 	`json:"transaction_time"`
 	}
 
-	err := c.BodyParser(&data)
+	requestDump := fmt.Sprintf("%s", c.Request().Body())
+
+	var req body
+	err := json.Unmarshal([]byte(requestDump), &req)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error parsing JSON request body:", err)
+		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	log.Print(data.RefNo)
-	log.Print(data.Status)
-	log.Print(data.Reason)
-	log.Print(data.BillCode)
-	log.Print(data.OrderId)
-	log.Print(data.Amount)
-	log.Print(data.TransactionTime)
+	log.Print(req.RefNo)
+	log.Print(req.Status)
+	log.Print(req.Reason)
+	log.Print(req.BillCode)
+	log.Print(req.OrderId)
+	log.Print(req.Amount)
+	log.Print(req.TransactionTime)
 
 	// get booking ID from data.BillCode
 	client, err := db.ConnectDB()
@@ -229,7 +234,7 @@ func HandleCallbackUrl(c *fiber.Ctx) error {
 
 	ctx := context.Background()
 
-	filter := bson.M{"_id": data.BillCode}
+	filter := bson.M{"_id": req.BillCode}
 
 	var booking Booking
 	err = bookingsCollection.FindOne(ctx, filter).Decode(&booking)
@@ -239,8 +244,10 @@ func HandleCallbackUrl(c *fiber.Ctx) error {
 	}
 
 	// update booking status based on data.Status
-	if data.Status == "1" {
-		booking.Status = 1
+	if req.Status == "1" {
+		booking.Status = 0
+	} else {
+		booking.Status = -1
 	}
 
 	err = UpdatePaymentStatus(&booking)
