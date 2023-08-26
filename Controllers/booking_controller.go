@@ -1139,6 +1139,7 @@ func AutoUpdateBookingStatus(c *fiber.Ctx) error {
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
+	c.Set("Access-Control-Allow-Origin", "*")
 
 	flusher, ok := c.Response().BodyWriter().(http.Flusher)
 	if !ok {
@@ -1151,11 +1152,15 @@ func AutoUpdateBookingStatus(c *fiber.Ctx) error {
 	for {
 		select {
 		case <-ticker.C:
-			message := fmt.Sprintf("data: %s\n\n", time.Now().Format(time.RFC3339))
+			message := fmt.Sprintf(`data: { "message": "%s" }\n\n`, time.Now().Format(time.RFC3339))
 			_, _ = c.WriteString(message)
+
+			log.Println("Sending message to client...")
+
 			flusher.Flush()
 		case <-c.Context().Done():
 			return nil
 		}
 	}
 }
+
