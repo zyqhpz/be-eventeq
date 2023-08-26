@@ -7,6 +7,7 @@ import (
 	"log"
 	"sort"
 	"time"
+	"net/http"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
 	model "github.com/zyqhpz/be-eventeq/Models"
@@ -1131,4 +1132,30 @@ func BookingStatusChecker() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+}
+
+// update booking using SSE
+func AutoUpdateBookingStatus(c *fiber.Ctx) error {
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+
+	flusher, ok := c.Response().BodyWriter().(http.Flusher)
+	if !ok {
+		return fmt.Errorf("streaming unsupported")
+	}
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			message := fmt.Sprintf("data: %s\n\n", time.Now().Format(time.RFC3339))
+			_, _ = c.WriteString(message)
+			flusher.Flush()
+		case <-c.Context().Done():
+			return nil
+		}
+	}
 }

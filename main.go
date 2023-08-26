@@ -76,6 +76,9 @@ func setupRoutes(app *fiber.App) {
 	// WebSocket route
 	app.Get("/ws", websocket.New(controller.WebSocketChat))
 
+	// SSE route
+	app.Get("/sse", controller.AutoUpdateBookingStatus)
+
 	app.Post("/user/test/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Login Success"})
 	})
