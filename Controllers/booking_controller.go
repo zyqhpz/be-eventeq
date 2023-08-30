@@ -1,13 +1,15 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
+	"net/http"
 	"sort"
 	"time"
-	"net/http"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
 	model "github.com/zyqhpz/be-eventeq/Models"
@@ -739,6 +741,11 @@ func GetEndedBookingListByUserID(c *fiber.Ctx) error {
 		Quantity 	int32 				`bson:"quantity"`
 	}
 
+	type Feedback struct {
+		Rating 		int32 				`bson:"rating"`
+		Review 		string 				`bson:"review"`
+	}
+
 	type Booking struct {
 		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
 		UserID 		primitive.ObjectID 	`bson:"user_id"`
@@ -750,6 +757,7 @@ func GetEndedBookingListByUserID(c *fiber.Ctx) error {
 		ServiceFee 	float64 			`bson:"service_fee"`
 		GrandTotal 	float64 			`bson:"grand_total"`
 		Status 		int32 				`bson:"status"`
+		Feedback	Feedback			`bson:"feedback"`
 		CreatedAt 	time.Time 			`bson:"created_at"`
 		UpdatedAt 	time.Time 			`bson:"updated_at"`
 	}
@@ -1134,6 +1142,85 @@ func BookingStatusChecker() {
 	defer cancel()
 }
 
+// feedback and rating for booking
+func UpdateFeedbackBooking(c *fiber.Ctx) error {
+
+	type body struct {
+		BookingId 			string 		`json:"bookingId"`
+		Rating 				int32 		`json:"rating"`
+		Review 				string 		`json:"review"`
+	}
+
+	requestDump := fmt.Sprintf("%s", c.Request().Body())
+
+	var req body
+	err := json.Unmarshal([]byte(requestDump), &req)
+	if err != nil {
+		log.Println("Error parsing JSON request body:", err)
+		return c.SendStatus(fiber.StatusBadRequest)
+	}
+
+	bookingId, _ := primitive.ObjectIDFromHex(req.BookingId)
+	rating := req.Rating
+	review := req.Review
+	
+	type Feedback struct {
+		Rating 		int32 			`bson:"rating"`
+		Review 		string 			`bson:"review"`
+	}
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		Feedback	Feedback			`bson:"feedback"`
+	}
+
+	var feedback Feedback
+	feedback.Rating = rating
+	feedback.Review = review
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	// Update status in the database
+	filter := bson.M{"_id": bookingId}
+	update := bson.M{"$set": bson.M{"feedback": feedback}}
+	updateResult, err := bookingsCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Println("Error updating booking status:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Failed to update booking status",
+		})
+	}
+
+	if err != nil {
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to update booking status",
+			"status": "failed",
+		})
+	}
+
+	log.Printf("New status for booking %v is %v.\n", bookingId, updateResult)
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Booking status updated to item returned",
+		"data": updateResult,
+	})
+}
+
 // update booking using SSE
 func AutoUpdateBookingStatus(c *fiber.Ctx) error {
 	c.Set("Content-Type", "text/event-stream")
@@ -1164,3 +1251,54 @@ func AutoUpdateBookingStatus(c *fiber.Ctx) error {
 	}
 }
 
+type (
+	Client struct {
+		name   string
+		events chan *DashBoard
+	}
+	DashBoard struct {
+		User uint
+	}
+)
+
+// SSE
+func updateDashboard(client *Client) {
+	for {
+		db := &DashBoard{
+			User:         uint(rand.Uint32()),
+		}
+		client.events <- db
+	}
+}
+
+func Handler(f http.HandlerFunc) http.Handler {
+	return http.HandlerFunc(f)
+}
+
+func DashboardHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Client: %v", r.RemoteAddr)
+	client := &Client{name: r.RemoteAddr, events: make(chan *DashBoard, 10)}
+	go updateDashboard(client)
+
+	// w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	timeout := time.After(1 * time.Second)
+	select {
+	case ev := <-client.events:
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.Encode(ev)
+		fmt.Fprintf(w, "data: %v\n\n", buf.String())
+		fmt.Printf("data: %v\n", buf.String())
+	case <-timeout:
+		fmt.Fprintf(w, ": nothing to sent\n\n")
+	}
+
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+}
