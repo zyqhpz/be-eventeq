@@ -1,9 +1,10 @@
 package main
 
 import (
+	"log"
+	"os"
 	controller "github.com/zyqhpz/be-eventeq/Controllers"
 	"go.mongodb.org/mongo-driver/mongo"
-
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
@@ -91,14 +92,20 @@ func main() {
 		// EnablePrintRoutes: true,
 		// DisableStartupMessage: true,
 	})
-
+	
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
 		AllowOrigins: "http://localhost:5173, https://fe-eventeq.vercel.app",
 		AllowMethods: "GET, POST, PUT, DELETE",
 		AllowHeaders: "Origin, Content-Type, Accept, Cache-Control, Connection",
 	}))
-
+	
+	port := os.Getenv("PORT")
+	
+	if port == "" {
+		port = "8080"
+	}
+	
 	setupRoutes(app)
-    app.Listen(":8080")
+	log.Fatal(app.Listen("0.0.0.0:" + port))
 }
