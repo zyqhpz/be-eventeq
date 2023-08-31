@@ -1167,6 +1167,7 @@ func UpdateFeedbackBooking(c *fiber.Ctx) error {
 	type Feedback struct {
 		Rating 		int32 			`bson:"rating"`
 		Review 		string 			`bson:"review"`
+		CreatedAt 	time.Time 		`bson:"created_at"`
 	}
 
 	type Booking struct {
@@ -1177,6 +1178,7 @@ func UpdateFeedbackBooking(c *fiber.Ctx) error {
 	var feedback Feedback
 	feedback.Rating = rating
 	feedback.Review = review
+	feedback.CreatedAt = time.Now()
 
 	client, err := db.ConnectDB()
 	if err != nil {
@@ -1232,6 +1234,7 @@ func GetFeedbacksByItemId(c *fiber.Ctx) error {
 	type Feedback struct {
 		Rating 		int32 				`bson:"rating"`
 		Review 		string 				`bson:"review"`
+		CreatedAt 	time.Time 			`bson:"created_at"`
 	}
 
 	type Item struct {
