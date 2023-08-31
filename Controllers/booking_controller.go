@@ -1221,6 +1221,91 @@ func UpdateFeedbackBooking(c *fiber.Ctx) error {
 	})
 }
 
+// get feedbacks by item id
+func GetFeedbacksByItemId(c *fiber.Ctx) error {
+	// get id from params
+	itemId := c.Params("itemId")
+
+	// convert id to primitive.ObjectID
+	iid, err := primitive.ObjectIDFromHex(itemId)
+
+	type Feedback struct {
+		Rating 		int32 				`bson:"rating"`
+		Review 		string 				`bson:"review"`
+	}
+
+	type Item struct {
+		ItemID 		primitive.ObjectID 	`bson:"id"`
+		Name		string				`bson:"name"`
+	}
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		items 		[]Item 				`bson:"items"`
+		Feedback	Feedback			`bson:"feedback"`
+	}
+
+	var feedbacks []Feedback
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	// create filter by item_id and status 3 (completed), feedback is exist and not empty
+	filter := bson.M{
+		"items.id": iid,
+		"status": bson.M{
+			"$in": []int32{3, 4, 5, 6},
+		},
+		"feedback": bson.M{
+			"$exists": true,
+			"$ne": bson.M{
+				"rating": 0,
+				"review": "",
+			},
+		},
+	}
+
+	// Query for the Item document and filter by the User ID and status
+	cursor, err := bookingsCollection.Find(ctx, filter)
+	
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Booking not found",
+			})
+		}
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to get booking from database",
+		})
+	}
+	defer cursor.Close(ctx)
+
+	// Iterate through the documents and print them
+	for cursor.Next(ctx) {
+		var booking Booking
+		if err := cursor.Decode(&booking); err != nil {
+			log.Fatal(err)
+		}
+
+		feedbacks = append(feedbacks, booking.Feedback)
+	}
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return c.JSON(feedbacks)
+}
+
 // update booking using SSE
 func AutoUpdateBookingStatus(c *fiber.Ctx) error {
 	c.Set("Content-Type", "text/event-stream")
