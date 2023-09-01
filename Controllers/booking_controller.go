@@ -8,11 +8,13 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"sort"
 	"time"
 
 	db "github.com/zyqhpz/be-eventeq/Database"
 	model "github.com/zyqhpz/be-eventeq/Models"
+	"gopkg.in/gomail.v2"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -428,6 +430,35 @@ func AddPaymentBillCode(booking *Booking) {
 		log.Print(updateResult)
 		log.Fatal(err)
 	}
+}
+
+func SendEmailNotification() {
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", "zyqq.dev@gmail.com")
+	m.SetHeader("To", "zyqq.dev@gmail.com")
+	m.SetHeader("Subject", "Hello from Golang Fiber!")
+	m.SetBody("text/plain", "This is the email body.")
+
+	gmailPwd := os.Getenv("GMAIL_PASSWORD")
+    if gmailPwd == "" {
+        log.Fatal("GMAIL_PASSWORD is not set")
+    }
+    
+	// Setup the SMTP server details
+	d := gomail.NewDialer("smtp.gmail.com", 587, "zyqq.dev@gmail.com", gmailPwd)
+
+	// Send the email
+	if err := d.DialAndSend(m); err != nil {
+		log.Print(err)
+	}
+
+	log.Print("Email sent!")
+}
+
+func SendEmail(c *fiber.Ctx) error {
+	SendEmailNotification()
+	return c.SendString("Email sent!")
 }
 
 func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
