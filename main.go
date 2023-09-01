@@ -90,10 +90,7 @@ func setupRoutes(app *fiber.App) {
 }
 
 func main() {
-    app := fiber.New(fiber.Config{
-		// EnablePrintRoutes: true,
-		// DisableStartupMessage: true,
-	})
+    app := fiber.New()
 	
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,

@@ -319,10 +319,11 @@ func GetItemById(c *fiber.Ctx) error {
 	itemsCollection := ConnectDBItems(client)
 
 	type User struct {
-		ID primitive.ObjectID `bson:"_id"`
-		FirstName string `bson:"first_name"`
-		LastName string `bson:"last_name"`
-		IsAvatarImageSet bool `bson:"isAvatarImageSet"`
+		ID 					primitive.ObjectID 		`bson:"_id"`
+		FirstName 			string 					`bson:"first_name"`
+		LastName 			string 					`bson:"last_name"`
+		IsAvatarImageSet 	bool 					`bson:"isAvatarImageSet"`
+		ProfileImage 		primitive.ObjectID 		`bson:"profile_image"`
 	}
 
 	type Data struct {
