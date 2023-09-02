@@ -3,12 +3,13 @@ package main
 import (
 	"log"
 	"os"
-	controller "github.com/zyqhpz/be-eventeq/Controllers"
-	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	controller "github.com/zyqhpz/be-eventeq/Controllers"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var client *mongo.Client
@@ -43,6 +44,7 @@ func setupRoutes(app *fiber.App) {
 	app.Get("/api/itemsActiveWithUser", controller.GetItemsActiveWithUser).Name("item.getActiveWithUser")
 
 	app.Get("/api/item/:itemId/booking", controller.GetBookingsByItemId).Name("item.getBookingsByItemId")
+	app.Get("/api/item/:itemId/feedback", controller.GetFeedbacksByItemId).Name("item.getFeedbacksByItemId")
 
 	/* Booking */
 	app.Get("/api/itemsForBooking/:ownerId", controller.GetItemDetailsForBooking).Name("booking.getItemDetailsForBooking")
@@ -76,6 +78,9 @@ func setupRoutes(app *fiber.App) {
 	app.Get("/api/payment/redirect", controller.HandleRedirectUrl).Name("payment.redirect")
 	app.Post("/api/payment/callback", controller.HandleCallbackUrl).Name("payment.callback")
 
+	/* Email */
+	app.Get("/api/email/send", controller.SendEmail).Name("email.send")
+
 	// WebSocket route
 	app.Get("/ws", websocket.New(controller.WebSocketChat))
 
@@ -88,10 +93,7 @@ func setupRoutes(app *fiber.App) {
 }
 
 func main() {
-    app := fiber.New(fiber.Config{
-		// EnablePrintRoutes: true,
-		// DisableStartupMessage: true,
-	})
+    app := fiber.New()
 	
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
