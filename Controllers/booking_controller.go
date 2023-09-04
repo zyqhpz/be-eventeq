@@ -25,7 +25,7 @@ import (
 )
 
 /*
-	Status code: 0 = upcoming, 1 = active, 2 = retrieved, 3 = returned (completed), 4 = cancelled, 5 = not picked up, 6 = overdue
+	Status code: 0 = upcoming, 1 = active, 2 = retrieved, 3 = returned (completed), 4 = cancelled, 5 = not picked up, 6 = overdue, 7 = unpaid
 */
 
 func ConnectDBBookings(client *mongo.Client) *mongo.Collection {
@@ -362,7 +362,7 @@ func CreateNewBooking(c *fiber.Ctx) error {
 		}
 	}
 
-	booking.Status = 0
+	booking.Status = -1 // set status to unpaid (status = -1)
 	booking.CreatedAt = time.Now()
 	booking.UpdatedAt = time.Now()
 
@@ -465,6 +465,7 @@ func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 
 	// run cron job to check booking status
 	BookingStatusChecker()
+	BookingPaymentStatusChecker()
 
 	// get id from params
 	userId := c.Params("userId")
@@ -504,8 +505,8 @@ func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 	bookingsCollection := ConnectDBBookings(client)
 	ctx := context.Background()
 
-	// add filter by status = 0 (upcoming) and -1 (unpaid)
-	filter := bson.M{"user_id": uid, "status": bson.M{"$in": []int32{0, -1}}}
+	// add filter by status = 0 (upcoming)
+	filter := bson.M{"user_id": uid, "status": bson.M{"$in": []int32{0}}}
 
 	// Query for the Item document and filter by the User ID in ownedBy
 	cursor, err := bookingsCollection.Find(ctx, filter)
@@ -539,20 +540,6 @@ func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 		// compare date with current date
 		if date.After(time.Now()) {
 			bookings = append(bookings, booking)
-		} else {
-			// update status in database
-			updateResult, _ := bookingsCollection.UpdateOne(
-				ctx,
-				bson.M{"_id": booking.ID},
-				bson.D{
-					{Key: "$set", Value: bson.D{{Key: "status", Value: 1}}},
-				},
-			)
-
-			booking.Status = 1 // 0 = upcoming, 1 = active, 2 = completed, 3 = cancelled
-			booking.UpdatedAt = time.Now()
-
-			log.Printf("Running update query for bookings, matched %v documents and updated %v documents.\n", updateResult.MatchedCount, updateResult.ModifiedCount)
 		}
 	}
 
@@ -806,7 +793,7 @@ func GetEndedBookingListByUserID(c *fiber.Ctx) error {
 	filter := bson.M{
 		"user_id": uid,
 		"status": bson.M{
-			"$in": []int32{3, 4, 5, 6},
+			"$in": []int32{3, 4, 5, 6, 7},
 		},
 	}
 
@@ -1123,6 +1110,7 @@ func BookingStatusChecker() {
 
 	type Booking struct {
 		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		StartDate 	string 				`bson:"start_date"`
 		EndDate 	string 				`bson:"end_date"`
 		Status 		int32 				`bson:"status"`
 	}
@@ -1160,6 +1148,112 @@ func BookingStatusChecker() {
 			}
 
 			log.Printf("[BOOKINGS CHECKER] Updated booking %v status to %v.\n", booking.ID, updateResult)
+		}
+	}
+
+	filter = bson.M{"status": 0}
+	cur, err = bookingsCollection.Find(context.Background(), filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cur.Close(context.Background())
+
+	// Loop over the documents
+	for cur.Next(context.Background()) {
+		var booking Booking
+		err := cur.Decode(&booking)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		startDate, _ := time.Parse("02/01/2006", booking.StartDate)
+		sTimestamp := startDate.Unix()
+
+		currentDate := time.Now().UTC().Add(8 * time.Hour)
+		cTimestamp := currentDate.Unix()
+		
+		if cTimestamp >= sTimestamp {
+			// Update status in the database
+			filter := bson.M{"_id": booking.ID}
+			update := bson.M{"$set": bson.M{"status": 1}, "$currentDate": bson.M{"updated_at": true}}
+
+			// Process the document
+			updateResult, err := bookingsCollection.UpdateOne(context.Background(), filter, update)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			log.Printf("[BOOKINGS CHECKER] Updated booking to active %v status to %v.\n", booking.ID, updateResult)
+		}
+	}
+
+	if err := cur.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+}
+
+// update booking status to cancelled if status = -1 and start date is 6 hours from now
+func BookingPaymentStatusChecker() {
+	
+	log.Println("Running cron job to check booking payment status...")
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		StartDate 	string 				`bson:"start_date"`
+		Status 		int32 				`bson:"status"`
+	}
+
+	filter := bson.M{"status": -1}
+	cur, err := bookingsCollection.Find(context.Background(), filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cur.Close(context.Background())
+
+	// Loop over the documents
+	for cur.Next(context.Background()) {
+		var booking Booking
+		err := cur.Decode(&booking)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		startDate, _ := time.Parse("02/01/2006", booking.StartDate)
+		sTimestamp := startDate.Unix()
+
+		currentDate := time.Now().UTC().Add((8 + 6) * time.Hour)
+		cTimestamp := currentDate.Unix()
+		
+		if cTimestamp >= sTimestamp {
+			// Update status in the database
+			filter := bson.M{"_id": booking.ID}
+			update := bson.M{"$set": bson.M{"status": 6}, "$currentDate": bson.M{"updated_at": true}}
+
+			// Process the document
+			updateResult, err := bookingsCollection.UpdateOne(context.Background(), filter, update)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			log.Printf("[BOOKINGS CHECKER] Updated booking unpaid %v status to %v.\n", booking.ID, updateResult)
 		}
 	}
 
@@ -1294,7 +1388,7 @@ func GetFeedbacksByItemId(c *fiber.Ctx) error {
 	filter := bson.M{
 		"items.id": iid,
 		"status": bson.M{
-			"$in": []int32{3, 4, 5, 6},
+			"$in": []int32{3},
 		},
 		"feedback": bson.M{
 			"$exists": true,

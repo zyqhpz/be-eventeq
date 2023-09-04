@@ -45,7 +45,7 @@ func CreatePaymentBillCode(booking *Booking) (string, error) {
 
 	redirectUrl := "https://fe-eventeq.vercel.app/payment/redirect"
 	// redirectUrl := "localhost:5173/payment/redirect"
-	callbackUrl := "https://be-eventeq-production.up.railway.app/api/payment/callback"
+	callbackUrl := "https://be.eventeq.com/api/payment/callback"
 
 	// convert booking.GrandTotal to cents
 	amount := booking.GrandTotal * 100
