@@ -509,8 +509,8 @@ func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 	bookingsCollection := ConnectDBBookings(client)
 	ctx := context.Background()
 
-	// add filter by status = 0 (upcoming)
-	filter := bson.M{"user_id": uid, "status": bson.M{"$in": []int32{0}}}
+	// add filter by status = 0 (upcoming) and -1 (unpaid)
+	filter := bson.M{"user_id": uid, "status": bson.M{"$in": []int32{0, -1}}}
 
 	// Query for the Item document and filter by the User ID in ownedBy
 	cursor, err := bookingsCollection.Find(ctx, filter)
