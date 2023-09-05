@@ -366,6 +366,25 @@ func CreateNewBooking(c *fiber.Ctx) error {
 	booking.CreatedAt = time.Now()
 	booking.UpdatedAt = time.Now()
 
+	// init bill_code with empty string
+	booking.BillCode = ""
+
+	// Insert the `bookings` document in the database
+	result, err := collection.InsertOne(ctx, booking)
+	if err != nil {
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to create booking",
+		})
+	}
+
+	defer client.Disconnect(ctx)
+
+	// get the inserted booking id
+	bookingID := result.InsertedID.(primitive.ObjectID).Hex()
+
+	booking.ID, _ = primitive.ObjectIDFromHex(bookingID)
+
 	billCode, err := CreatePaymentBillCode(booking)
 
 	if err != nil {
@@ -375,17 +394,9 @@ func CreateNewBooking(c *fiber.Ctx) error {
 		})
 	}
 
-	// update booking with bill code
 	booking.BillCode = billCode
 
-	// Insert the `bookings` document in the database
-	_, err = collection.InsertOne(ctx, booking)
-	if err != nil {
-		// Return an error response if there is a database error
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "Failed to create booking",
-		})
-	}
+	AddPaymentBillCode(booking)
 
 	defer client.Disconnect(ctx)
 
