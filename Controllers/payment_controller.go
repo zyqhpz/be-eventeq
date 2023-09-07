@@ -189,14 +189,6 @@ func HandleCallbackUrl(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	log.Print(req.RefNo)
-	log.Print(req.Status)
-	log.Print(req.Reason)
-	log.Print(req.BillCode)
-	log.Print(req.OrderId)
-	log.Print(req.Amount)
-	log.Print(req.TransactionTime)
-
 	// convert string to int
 	status, err := strconv.Atoi(req.Status)
 	err = UpdatePaymentStatus(req.BillCode, status)
@@ -220,7 +212,6 @@ func UpdatePaymentStatus(billCode string, status int) error {
 	bookingsCollection := ConnectDBBookings(client)
 	ctx := context.Background()
 
-	// filter := bson.M{"_id": bId}
 	filter := bson.M{"bill_code": billCode}
 
 	if status == 1 {
@@ -229,6 +220,8 @@ func UpdatePaymentStatus(billCode string, status int) error {
 	} else {
 		status = -1
 	}
+
+	log.Println(billCode + " " + strconv.Itoa(status))
 
 	update := bson.M{
 		"$set": bson.M{
@@ -243,48 +236,3 @@ func UpdatePaymentStatus(billCode string, status int) error {
 
 	return nil
 }
-
-// func HandleSetInactive(c *fiber.Ctx) error {
-
-// 	// get booking ID from request body
-// 	var data struct {
-// 		BookingID string `json:"booking_id"`
-// 	}
-
-// 	err := c.BodyParser(&data)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	// get booking from database
-// 	client, err := db.ConnectDB()
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	bookingsCollection := ConnectDBBookings(client)
-
-// 	ctx := context.Background()
-
-// 	filter := bson.M{"_id": data.BookingID}
-
-// 	var booking Booking
-// 	err = bookingsCollection.FindOne(ctx, filter).Decode(&booking)
-// 	if err != nil {
-// 		log.Print("Error getting booking:")
-// 		log.Fatal(err)
-// 	}
-
-// 	// set booking status to 0
-// 	booking.Status = 0
-
-// 	err = UpdatePaymentStatus(&booking)
-
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	return c.JSON(fiber.Map{
-// 		"status": "success",
-// 	})
-// }
