@@ -436,13 +436,56 @@ func AddPaymentBillCode(booking *Booking) {
 	}
 }
 
-func SendEmailNotification() {
+func SendEmailNotificationToOwner() {
 	// Create a new email message
 	m := gomail.NewMessage()
-	m.SetHeader("From", "zyqq.dev@gmail.com")
-	m.SetHeader("To", "zyqq.dev@gmail.com")
-	m.SetHeader("Subject", "New booking created")
-	m.SetBody("text/plain", "A new booking has been created. Please check your booking dashboard for more details.")
+	// m.SetHeader("From", "zyqq.dev@gmail.com")
+	m.SetHeader("From", "no-reply@eventeq.xyz")
+	m.SetHeader("To", "hapiz.m@yes.my")
+	m.SetHeader("Subject", "[EventEQ] Item Booked")
+	m.SetBody("text/html", `
+		<html>
+		<body>
+			<p>Someone has booked your item. Please check your booking dashboard for more details.</p>
+			<p>
+				<a href="https://fe-eventeq.vercel.app/listing/booking" style="background-color: #FFA500; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Visit Booking Dashboard</a>
+			</p>
+		</body>
+		</html>
+	`)
+
+	gmailPwd := os.Getenv("GMAIL_PASSWORD")
+    if gmailPwd == "" {
+        log.Fatal("GMAIL_PASSWORD is not set")
+    }
+    
+	// Setup the SMTP server details
+	d := gomail.NewDialer("smtp.gmail.com", 587, "zyqq.dev@gmail.com", gmailPwd)
+
+	// Send the email
+	if err := d.DialAndSend(m); err != nil {
+		log.Print(err)
+	}
+
+	log.Print("Email sent!")
+}
+
+func SendEmailNotificationToRenter() {
+	// Create a new email message
+	m := gomail.NewMessage()
+	m.SetHeader("From", "no-reply@eventeq.xyz")
+	m.SetHeader("To", "hapiz.m@yes.my")
+	m.SetHeader("Subject", "[EventEQ] New Booking Created")
+	m.SetBody("text/html", `
+		<html>
+		<body>
+			<p>A new booking has been created. Please check your booking dashboard for more details.</p>
+			<p>
+				<a href="https://fe-eventeq.vercel.app/listing/booking" style="background-color: #FFA500; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Visit Booking Dashboard</a>
+			</p>
+		</body>
+		</html>
+	`)
 
 	gmailPwd := os.Getenv("GMAIL_PASSWORD")
     if gmailPwd == "" {
@@ -461,7 +504,7 @@ func SendEmailNotification() {
 }
 
 func SendEmail(c *fiber.Ctx) error {
-	SendEmailNotification()
+	SendEmailNotificationToOwner()
 	return c.SendString("Email sent!")
 }
 

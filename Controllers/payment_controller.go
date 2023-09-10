@@ -216,7 +216,8 @@ func UpdatePaymentStatus(billCode string, status int) error {
 
 	if status == 1 {
 		status = 0
-		SendEmailNotification()
+		SendEmailNotificationToOwner()
+		SendEmailNotificationToRenter()
 	} else {
 		status = -1
 	}
