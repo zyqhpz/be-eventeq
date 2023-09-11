@@ -46,7 +46,7 @@ func CreatePaymentBillCode(booking *Booking) (string, error) {
 
 	redirectUrl := "https://fe-eventeq.vercel.app/payment/redirect"
 	// redirectUrl := "localhost:5173/payment/redirect"
-	callbackUrl := "https://be.eventeq.xyz/api/payment/callback"
+	callbackUrl := "https://api.eventeq.xyz/api/payment/callback"
 
 	// convert booking.GrandTotal to cents
 	amount := booking.GrandTotal * 100
@@ -216,7 +216,8 @@ func UpdatePaymentStatus(billCode string, status int) error {
 
 	if status == 1 {
 		status = 0
-		SendEmailNotification()
+		SendEmailNotificationToOwner()
+		SendEmailNotificationToRenter()
 	} else {
 		status = -1
 	}
