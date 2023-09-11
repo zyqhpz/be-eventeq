@@ -1,0 +1,29 @@
+name: Deploy to Lightsail
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: SSH into Lightsail Instance
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          password: ${{ secrets.LIGHTSAIL_PASSWORD }}
+          script: |
+            cd ~/dev/be-eventeq
+            git pull origin master
+            docker build -t eventeq-image:lightsail .
+            docker stop my_eventeq_container || true
+            docker rm my_eventeq_container || true
+            docker run -d -p 8080:8080 --name my_eventeq_container eventeq-image:lightsail 
+
