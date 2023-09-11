@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -227,6 +228,96 @@ func UpdatePaymentStatus(billCode string, status int) error {
 	update := bson.M{
 		"$set": bson.M{
 			"status": status,
+		},
+	}
+
+	_, err = bookingsCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return nil
+}
+
+func PaymentStatusChecker(billCode string) error { 
+
+	someData := map[string]string{
+		"billCode": billCode,
+	}
+
+	data := bytes.NewBuffer([]byte(``))
+	for key, value := range someData {
+		data.WriteString(key)
+		data.WriteString("=")
+		data.WriteString(value)
+		data.WriteString("&")
+	}
+
+	client := &http.Client{}
+	url := "https://dev.toyyibpay.com/index.php/api/getBillTransactions"
+
+	req, err := http.NewRequest("POST", url, data)
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error making request:", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	result := new(bytes.Buffer)
+	_, err = result.ReadFrom(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response:", err)
+		return err
+	}
+
+	var response []map[string]interface{}
+
+	if err := json.Unmarshal([]byte(result.String()), &response); err != nil {
+		fmt.Println("Error decoding JSON:", err)
+		return err
+	}
+
+	// Extract 'billpaymentStatus' from the first element (assuming there's only one)
+	if len(response) > 0 {
+		billpaymentStatus, ok := response[0]["billpaymentStatus"].(string)
+		if ok {
+			if (billpaymentStatus == "1") {
+				err = UpdatePaymentStatusByChecker(billCode)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+		} else {
+			fmt.Println("billpaymentStatus not found or not a string")
+		}
+	}
+
+	return nil
+}
+
+func UpdatePaymentStatusByChecker(billCode string) error { 
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+
+	filter := bson.M{"bill_code": billCode}
+
+	update := bson.M{
+		"$set": bson.M{
+			"status": 0,
 		},
 	}
 
