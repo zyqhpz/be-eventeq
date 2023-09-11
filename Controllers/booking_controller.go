@@ -511,8 +511,8 @@ func SendEmail(c *fiber.Ctx) error {
 func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 
 	// run cron job to check booking status
-	BookingStatusChecker()
 	BookingPaymentStatusChecker()
+	BookingStatusChecker()
 
 	// get id from params
 	userId := c.Params("userId")
@@ -1264,6 +1264,7 @@ func BookingPaymentStatusChecker() {
 		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
 		StartDate 	string 				`bson:"start_date"`
 		Status 		int32 				`bson:"status"`
+		BillCode 	string 				`bson:"bill_code"`
 	}
 
 	filter := bson.M{"status": -1}
@@ -1302,6 +1303,8 @@ func BookingPaymentStatusChecker() {
 
 			log.Printf("[BOOKINGS CHECKER] Updated booking unpaid %v status to %v.\n", booking.ID, updateResult)
 		}
+
+		err = PaymentStatusChecker(booking.BillCode)
 	}
 
 	if err := cur.Err(); err != nil {
