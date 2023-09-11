@@ -18,7 +18,7 @@ jobs:
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USERNAME }}
-          password: ${{ secrets.LIGHTSAIL_PASSWORD }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
             cd ~/dev/be-eventeq
             git pull origin master
