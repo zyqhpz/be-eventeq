@@ -441,7 +441,7 @@ func SendEmailNotificationToOwner() {
 	m := gomail.NewMessage()
 	// m.SetHeader("From", "zyqq.dev@gmail.com")
 	m.SetHeader("From", "no-reply@eventeq.xyz")
-	m.SetHeader("To", "hapiz.m@yes.my")
+	m.SetHeader("To", "no-reply@eventeq.xyz")
 	m.SetHeader("Subject", "[EventEQ] Item Booked")
 	m.SetBody("text/html", `
 		<html>
@@ -474,7 +474,7 @@ func SendEmailNotificationToRenter() {
 	// Create a new email message
 	m := gomail.NewMessage()
 	m.SetHeader("From", "no-reply@eventeq.xyz")
-	m.SetHeader("To", "hapiz.m@yes.my")
+	m.SetHeader("To", "no-reply@eventeq.xyz")
 	m.SetHeader("Subject", "[EventEQ] New Booking Created")
 	m.SetBody("text/html", `
 		<html>
