@@ -885,6 +885,108 @@ func GetEndedBookingListByUserID(c *fiber.Ctx) error {
 	return c.JSON(bookings)
 }
 
+// get booking details by booking id
+func GetBookingDetailsByBookingID(c *fiber.Ctx) error {
+		// get id from params
+	bookingId := c.Params("bookingId")
+
+	// convert id to primitive.ObjectID
+	bid, err := primitive.ObjectIDFromHex(bookingId)
+
+	type Item struct {
+		ItemID 		primitive.ObjectID 		`bson:"id"`
+		Name		string					`bson:"name"`
+		Description	string					`bson:"description"`
+		Price		float64 				`bson:"price"`
+		Quantity 	int32 					`bson:"quantity"`
+	}
+
+	type User struct {
+		ID          primitive.ObjectID `bson:"_id,omitempty"`
+		FirstName   string             `bson:"first_name"`
+		LastName    string             `bson:"last_name"`
+		Email       string             `bson:"email"`
+		NoPhone	 	string             `bson:"no_phone"`
+	}
+
+	type Booking struct {
+		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
+		UserID 		primitive.ObjectID 	`bson:"user_id"`
+		OwnerID		primitive.ObjectID 	`bson:"owner_id"`
+		Items 		[]Item 				`bson:"items"`
+		StartDate 	string 				`bson:"start_date"`
+		EndDate 	string 				`bson:"end_date"`
+		SubTotal 	float64 			`bson:"sub_total"`
+		ServiceFee 	float64 			`bson:"service_fee"`
+		GrandTotal 	float64 			`bson:"grand_total"`
+		Status 		int32 				`bson:"status"`
+		CreatedAt 	time.Time 			`bson:"created_at"`
+		UpdatedAt 	time.Time 			`bson:"updated_at"`
+	}
+
+	type Response struct {
+		Owner		User				`bson:"booked_by"`
+		Renter		User				`bson:"rented_by"`
+		Booking		Booking				`bson:"booking"`
+	}
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+	
+	// create filter by booking_id
+	filter := bson.M{"_id": bid}
+
+	// Query for the Item document and filter by the User ID in ownedBy
+	result := bookingsCollection.FindOne(ctx, filter)
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Booking not found",
+			})
+		}
+		// Return an error response if there is a database error
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to get booking from database",
+		})
+	}
+
+	var booking Booking
+	if err := result.Decode(&booking); err != nil {
+		log.Fatal(err)
+	}
+
+	// get user details from database
+	usersCollection := ConnectDBUsers(client)
+	ctx = context.Background()
+
+	var owner User
+	usersCollection.FindOne(ctx, bson.M{"_id": booking.OwnerID}).Decode(&owner)
+	
+	var renter User
+	usersCollection.FindOne(ctx, bson.M{"_id": booking.UserID}).Decode(&renter)
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	response := Response{
+		Owner: owner,
+		Renter: renter,
+		Booking: booking,
+	}
+
+	return c.JSON(response)
+}
+
+
 // get item in booking by user id
 func GetItemInBookingListByUserID(c *fiber.Ctx) error {
 	// get id from params
@@ -908,6 +1010,11 @@ func GetItemInBookingListByUserID(c *fiber.Ctx) error {
 		NoPhone	 	string             `bson:"no_phone"`
 	}
 
+	type Feedback struct {
+		Rating 		int32 				`bson:"rating"`
+		Review 		string 				`bson:"review"`
+	}
+
 	type Booking struct {
 		ID        	primitive.ObjectID 	`bson:"_id,omitempty"`
 		UserID 		primitive.ObjectID 	`bson:"user_id"`
@@ -920,6 +1027,7 @@ func GetItemInBookingListByUserID(c *fiber.Ctx) error {
 		ServiceFee 	float64 			`bson:"service_fee"`
 		GrandTotal 	float64 			`bson:"grand_total"`
 		Status 		int32 				`bson:"status"`
+		Feedback	Feedback			`bson:"feedback"`
 		CreatedAt 	time.Time 			`bson:"created_at"`
 		UpdatedAt 	time.Time 			`bson:"updated_at"`
 	}
