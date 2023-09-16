@@ -436,12 +436,12 @@ func AddPaymentBillCode(booking *Booking) {
 	}
 }
 
-func SendEmailNotificationToOwner(html string) {
+func SendEmailNotificationToOwner(html string, email string) {
 	// Create a new email message
 	m := gomail.NewMessage()
 	// m.SetHeader("From", "zyqq.dev@gmail.com")
 	m.SetHeader("From", "zyqq.dev@gmail.com")
-	m.SetHeader("To", "zyqq.dev@gmail.com")
+	m.SetHeader("To", email)
 	m.SetHeader("Subject", "[EventEQ] Item Booked")
 	m.SetBody("text/html", html)
 
@@ -461,11 +461,11 @@ func SendEmailNotificationToOwner(html string) {
 	log.Print("Email sent!")
 }
 
-func SendEmailNotificationToRenter(html string) {
+func SendEmailNotificationToRenter(html string, email string) {
 	// Create a new email message
 	m := gomail.NewMessage()
 	m.SetHeader("From", "zyqq.dev@gmail.com")
-	m.SetHeader("To", "zyqq.dev@gmail.com")
+	m.SetHeader("To", email)
 	m.SetHeader("Subject", "[EventEQ] New Booking Created")
 	m.SetBody("text/html", html)
 
@@ -549,8 +549,8 @@ func GenerateEmail(biilCode string) {
 	htmlOwner := GenerateEmailHTMLOwner(&response)
 	htmlRenter := GenerateEmailHTMLRenter(&response)
 	
-	SendEmailNotificationToOwner(htmlOwner)
-	SendEmailNotificationToRenter(htmlRenter)
+	SendEmailNotificationToOwner(htmlOwner, owner.Email)
+	SendEmailNotificationToRenter(htmlRenter, renter.Email)
 }
 
 func GenerateEmailHTMLOwner(response *Response) string {
