@@ -1064,7 +1064,7 @@ func GetEndedBookingListByUserID(c *fiber.Ctx) error {
 }
 
 // get booking details by booking id
-func GetBookingDetailsByBookingID(c *fiber.Ctx) error {
+func GetBookingDetailsByBookingIDForReceipt(c *fiber.Ctx) error {
 		// get id from params
 	bookingId := c.Params("bookingId")
 
@@ -1106,6 +1106,7 @@ func GetBookingDetailsByBookingID(c *fiber.Ctx) error {
 		Owner		User				`bson:"booked_by"`
 		Renter		User				`bson:"rented_by"`
 		Booking		Booking				`bson:"booking"`
+		Duration 	int					`bson:"duration"`
 	}
 
 	client, err := db.ConnectDB()
@@ -1140,6 +1141,8 @@ func GetBookingDetailsByBookingID(c *fiber.Ctx) error {
 		log.Fatal(err)
 	}
 
+	duration, _ := CalculateDurationInDays(booking.StartDate, booking.EndDate)
+
 	// get user details from database
 	usersCollection := ConnectDBUsers(client)
 	ctx = context.Background()
@@ -1159,6 +1162,7 @@ func GetBookingDetailsByBookingID(c *fiber.Ctx) error {
 		Owner: owner,
 		Renter: renter,
 		Booking: booking,
+		Duration: duration,
 	}
 
 	return c.JSON(response)
