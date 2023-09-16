@@ -436,23 +436,14 @@ func AddPaymentBillCode(booking *Booking) {
 	}
 }
 
-func SendEmailNotificationToOwner() {
+func SendEmailNotificationToOwner(html string) {
 	// Create a new email message
 	m := gomail.NewMessage()
 	// m.SetHeader("From", "zyqq.dev@gmail.com")
-	m.SetHeader("From", "no-reply@eventeq.xyz")
-	m.SetHeader("To", "no-reply@eventeq.xyz")
+	m.SetHeader("From", "zyqq.dev@gmail.com")
+	m.SetHeader("To", "zyqq.dev@gmail.com")
 	m.SetHeader("Subject", "[EventEQ] Item Booked")
-	m.SetBody("text/html", `
-		<html>
-		<body>
-			<p>Someone has booked your item. Please check your booking dashboard for more details.</p>
-			<p>
-				<a href="https://fe-eventeq.vercel.app/listing/booking" style="background-color: #FFA500; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Visit Booking Dashboard</a>
-			</p>
-		</body>
-		</html>
-	`)
+	m.SetBody("text/html", html)
 
 	gmailPwd := os.Getenv("GMAIL_PASSWORD")
     if gmailPwd == "" {
@@ -470,22 +461,13 @@ func SendEmailNotificationToOwner() {
 	log.Print("Email sent!")
 }
 
-func SendEmailNotificationToRenter() {
+func SendEmailNotificationToRenter(html string) {
 	// Create a new email message
 	m := gomail.NewMessage()
-	m.SetHeader("From", "no-reply@eventeq.xyz")
-	m.SetHeader("To", "no-reply@eventeq.xyz")
+	m.SetHeader("From", "zyqq.dev@gmail.com")
+	m.SetHeader("To", "zyqq.dev@gmail.com")
 	m.SetHeader("Subject", "[EventEQ] New Booking Created")
-	m.SetBody("text/html", `
-		<html>
-		<body>
-			<p>A new booking has been created. Please check your booking dashboard for more details.</p>
-			<p>
-				<a href="https://fe-eventeq.vercel.app/listing/booking" style="background-color: #FFA500; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Visit Booking Dashboard</a>
-			</p>
-		</body>
-		</html>
-	`)
+	m.SetBody("text/html", html)
 
 	gmailPwd := os.Getenv("GMAIL_PASSWORD")
     if gmailPwd == "" {
@@ -501,12 +483,208 @@ func SendEmailNotificationToRenter() {
 	}
 
 	log.Print("Email sent!")
+}
+
+type Response struct {
+	Owner		model.User				`bson:"booked_by"`
+	Renter		model.User				`bson:"rented_by"`
+	Booking		Booking					`bson:"booking"`
 }
 
 func SendEmail(c *fiber.Ctx) error {
-	SendEmailNotificationToOwner()
 	return c.SendString("Email sent!")
 }
+
+func GenerateEmail(biilCode string) {
+
+	client, err := db.ConnectDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Select the `bookings` collection from the database
+	bookingsCollection := ConnectDBBookings(client)
+	ctx := context.Background()
+	
+	// create filter by booking_id
+	filter := bson.M{"bill_code": biilCode}
+
+	// Query for the Item document and filter by the User ID in ownedBy
+	result := bookingsCollection.FindOne(ctx, filter)
+	if err != nil {
+		// Return an error response if the document is not found
+		if err == mongo.ErrNoDocuments {
+			log.Print("Booking not found")
+		}
+		// Return an error response if there is a database error
+		log.Print("Failed to get booking from database")
+	}
+
+	var booking Booking
+	if err := result.Decode(&booking); err != nil {
+		log.Fatal(err)
+	}
+
+	// get user details from database
+	usersCollection := ConnectDBUsers(client)
+	ctx = context.Background()
+
+	var owner model.User
+	usersCollection.FindOne(ctx, bson.M{"_id": booking.OwnerID}).Decode(&owner)
+	
+	var renter model.User
+	usersCollection.FindOne(ctx, bson.M{"_id": booking.UserID}).Decode(&renter)
+
+	defer client.Disconnect(ctx)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	response := Response{
+		Owner: owner,
+		Renter: renter,
+		Booking: booking,
+	}
+
+	htmlOwner := GenerateEmailHTMLOwner(&response)
+	htmlRenter := GenerateEmailHTMLRenter(&response)
+	
+	SendEmailNotificationToOwner(htmlOwner)
+	SendEmailNotificationToRenter(htmlRenter)
+}
+
+func GenerateEmailHTMLOwner(response *Response) string {
+
+	var buffer bytes.Buffer
+
+	buffer.WriteString("<html>")
+	buffer.WriteString("<body style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\">")
+
+	buffer.WriteString("<img src=\"https://fe-eventeq.vercel.app/assets/EventEQ-3bbd7d34.png\" alt=\"Event-EQ-Logo\" border=\"0\" style=\"width: 200px; height: auto; margin-bottom: 20px;\">")
+
+	buffer.WriteString("<p>Dear, " + response.Owner.FirstName + " " + response.Owner.LastName + "</p>")
+
+	buffer.WriteString("<p>A new booking has been created for your item. Please check your booking dashboard for more details.</p>")
+
+	buffer.WriteString("<h2>Renter Details</h2>")
+	buffer.WriteString("<p>Name: " + response.Renter.FirstName + " " + response.Renter.LastName + "</p>")
+	buffer.WriteString("<p>Email: " + response.Renter.Email + "</p>")
+
+	buffer.WriteString("<h2>Booking Details</h2>")
+	buffer.WriteString("<p>Start Date: " + response.Booking.StartDate + "</p>")
+	buffer.WriteString("<p>End Date: " + response.Booking.EndDate + "</p>")
+
+	// calculate duration in days (end date - start date)
+	duration, _ := CalculateDurationInDays(response.Booking.StartDate, response.Booking.EndDate)
+
+	buffer.WriteString("<p>Duration: " + fmt.Sprintf("%d", duration) + " day(s)</p>")
+
+	buffer.WriteString("<h2>Item Details</h2>")
+
+	buffer.WriteString("<table style=\"border-collapse: collapse; width: 100%;\">")
+	buffer.WriteString("<tr>")
+	buffer.WriteString("<th style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">Item Name</th>")
+	buffer.WriteString("<th style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">Quantity</th>")
+	buffer.WriteString("<th style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">Price (per day)</th>")
+	buffer.WriteString("<th style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">Total</th>")
+	buffer.WriteString("</tr>")
+
+	for _, item := range response.Booking.Items {
+		buffer.WriteString("<tr>")
+		buffer.WriteString("<td style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">" + item.Name + "</td>")
+		buffer.WriteString("<td style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">" + fmt.Sprintf("%d", item.Quantity) + "</td>")
+		buffer.WriteString("<td style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">" + fmt.Sprintf("%.2f", item.Price) + "</td>")
+
+		total := item.Price * float64(item.Quantity) * float64(duration)
+
+		buffer.WriteString("<td style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">" + fmt.Sprintf("%.2f", total) + "</td>")
+		buffer.WriteString("</tr>")
+	}
+
+	buffer.WriteString("</table>")
+
+	buffer.WriteString("<h2>Payment Details</h2>")
+	buffer.WriteString("<p>Subtotal: RM " + fmt.Sprintf("%.2f", response.Booking.SubTotal) + "</p>")
+	buffer.WriteString("<p>Service Fee (7%): RM " + fmt.Sprintf("%.2f", response.Booking.ServiceFee) + "</p>")
+	buffer.WriteString("<p>Grand Total: RM " + fmt.Sprintf("%.2f", response.Booking.GrandTotal) + "</p>")
+
+	buffer.WriteString("<p><a href='https://fe-eventeq.vercel.app/listing/booking' style='background-color: #FFA500; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Visit Booking Dashboard</a></p>")
+
+	// write thank you message
+	buffer.WriteString("<p>Thank you for using EventEQ.</p>")
+
+	buffer.WriteString("</body>")
+	buffer.WriteString("</html>")
+
+	return buffer.String()
+}
+
+func GenerateEmailHTMLRenter(response *Response) string {
+	
+	var buffer bytes.Buffer
+
+	buffer.WriteString("<html>")
+	buffer.WriteString("<body style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\">")
+
+	buffer.WriteString("<img src=\"https://fe-eventeq.vercel.app/assets/EventEQ-3bbd7d34.png\" alt=\"Event-EQ-Logo\" border=\"0\" style=\"width: 200px; height: auto; margin-bottom: 20px;\">")
+
+	buffer.WriteString("<p>Dear, " + response.Renter.FirstName + " " + response.Renter.LastName + "</p>")
+
+	buffer.WriteString("<p>Your booking has been created. Please check your booking dashboard for more details.</p>")
+
+	buffer.WriteString("<h2>Owner Details</h2>")
+	buffer.WriteString("<p>Name: " + response.Owner.FirstName + " " + response.Owner.LastName + "</p>")
+	buffer.WriteString("<p>Email: " + response.Owner.Email + "</p>")
+
+	buffer.WriteString("<h2>Booking Details</h2>")
+	buffer.WriteString("<p>Start Date: " + response.Booking.StartDate + "</p>")
+	buffer.WriteString("<p>End Date: " + response.Booking.EndDate + "</p>")
+
+	// calculate duration in days (end date - start date)
+	duration, _ := CalculateDurationInDays(response.Booking.StartDate, response.Booking.EndDate)
+
+	buffer.WriteString("<p>Duration: " + fmt.Sprintf("%d", duration) + " day(s)</p>")
+
+	buffer.WriteString("<h2>Item Details</h2>")
+
+	buffer.WriteString("<table style=\"border-collapse: collapse; width: 100%;\">")
+	buffer.WriteString("<tr>")
+	buffer.WriteString("<th style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">Item Name</th>")
+	buffer.WriteString("<th style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">Quantity</th>")
+	buffer.WriteString("<th style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">Price (per day)</th>")
+	buffer.WriteString("<th style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">Total</th>")
+	buffer.WriteString("</tr>")
+
+	for _, item := range response.Booking.Items {
+		buffer.WriteString("<tr>")
+		buffer.WriteString("<td style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">" + item.Name + "</td>")
+		buffer.WriteString("<td style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">" + fmt.Sprintf("%d", item.Quantity) + "</td>")
+		buffer.WriteString("<td style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">" + fmt.Sprintf("%.2f", item.Price) + "</td>")
+
+		total := item.Price * float64(item.Quantity) * float64(duration)
+
+		buffer.WriteString("<td style=\"border: 1px solid #dddddd; text-align: left; padding: 8px;\">" + fmt.Sprintf("%.2f", total) + "</td>")
+		buffer.WriteString("</tr>")
+	}
+
+	buffer.WriteString("</table>")
+
+	buffer.WriteString("<h2>Payment Details</h2>")
+	buffer.WriteString("<p>Subtotal: RM " + fmt.Sprintf("%.2f", response.Booking.SubTotal) + "</p>")
+	buffer.WriteString("<p>Service Fee (7%): RM " + fmt.Sprintf("%.2f", response.Booking.ServiceFee) + "</p>")
+	buffer.WriteString("<p>Grand Total: RM " + fmt.Sprintf("%.2f", response.Booking.GrandTotal) + "</p>")
+
+	buffer.WriteString("<p><a href='https://fe-eventeq.vercel.app/listing/booking' style='background-color: #FFA500; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Visit Booking Dashboard</a></p>")
+
+	// write thank you message
+	buffer.WriteString("<p>Thank you for using EventEQ.</p>")
+
+	buffer.WriteString("</body>")
+	buffer.WriteString("</html>")
+
+	return buffer.String()
+}
+
 
 func GetUpcomingBookingListByUserID(c *fiber.Ctx) error {
 
@@ -985,7 +1163,6 @@ func GetBookingDetailsByBookingID(c *fiber.Ctx) error {
 
 	return c.JSON(response)
 }
-
 
 // get item in booking by user id
 func GetItemInBookingListByUserID(c *fiber.Ctx) error {
@@ -1647,7 +1824,7 @@ func Handler(f http.HandlerFunc) http.Handler {
 }
 
 func DashboardHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Client: %v", r.RemoteAddr)
+	fmt.Println("DashboardHandler")
 	client := &Client{name: r.RemoteAddr, events: make(chan *DashBoard, 10)}
 	go updateDashboard(client)
 
