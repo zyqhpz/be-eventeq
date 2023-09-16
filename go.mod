@@ -3,14 +3,13 @@ module github.com/zyqhpz/be-eventeq
 go 1.20
 
 require (
+	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.47.0
 	github.com/golang-jwt/jwt/v5 v5.0.0-rc.2
 )
 
 require (
 	github.com/fasthttp/websocket v1.5.3 // indirect
-	github.com/go-gomail/gomail v0.0.0-20160411212932-81ebce5c23df // indirect
-	github.com/gofiber/adaptor/v2 v2.2.1 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
