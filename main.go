@@ -55,7 +55,7 @@ func setupRoutes(app *fiber.App) {
 	app.Get("/api/booking/:userId/ended/listing", controller.GetEndedBookingListByUserID).Name("booking.getEndedBookingListByUserID")
 	app.Get("/api/booking/:userId/inBooking/listing", controller.GetItemInBookingListByUserID).Name("booking.getInBookingListByUserID")
 	app.Get("/api/booking/active/:bookingId", controller.GetActiveBookingByBookingID).Name("booking.getActiveBookingByBookingID")
-	app.Get("/api/booking/receipt/:bookingId", controller.GetBookingDetailsByBookingID).Name("booking.getBookingDetailsByBookingID")
+	app.Get("/api/booking/receipt/:bookingId", controller.GetBookingDetailsByBookingIDForReceipt).Name("booking.getBookingDetailsByBookingID")
 	app.Put("/api/booking/active/:bookingId/retrieve", controller.UpdateBookingStatusAfterItemRetrieved).Name("booking.updateBookingStatusAfterItemRetrieved")
 	app.Put("/api/booking/active/:bookingId/return", controller.UpdateBookingStatusAfterItemReturned).Name("booking.updateBookingStatusAfterItemReturned")
 	app.Put("/api/booking/giveRating", controller.UpdateFeedbackBooking).Name("booking.updateFeedbackBooking")
