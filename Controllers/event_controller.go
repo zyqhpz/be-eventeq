@@ -178,14 +178,14 @@ func GetEventsActiveWithUser(c *fiber.Ctx) error {
 	}
 
 	type Data struct {
-		ID        		primitive.ObjectID 	`bson:"_id,omitempty"`
+		ID        		primitive.ObjectID 	`bson:"_id"`
 		Name        	string 				`bson:"name"`
 		Description 	string 				`bson:"description"`
 		Location		model.Location		`bson:"location"`
 		StartDate   	string 				`bson:"start_date"`
 		EndDate     	string 				`bson:"end_date"`
 		Status	  		int 				`bson:"status"`
-		OrganizedBy 	User
+		Organized_By 	User
 		CreatedAt 		time.Time 			`bson:"created_at"`
 		UpdatedAt 		time.Time 			`bson:"updated_at"`
 	}
@@ -199,9 +199,6 @@ func GetEventsActiveWithUser(c *fiber.Ctx) error {
 	// create a pipeline for the aggregation to get all events with status 1 and user
 	pipeline := []bson.M{
 		{
-			"$match": bson.M{"status": 1},
-		},
-		{
 			"$lookup": bson.M{
 				"from":         "users",
 				"localField":   "organized_by",
@@ -214,6 +211,9 @@ func GetEventsActiveWithUser(c *fiber.Ctx) error {
 				"path":                       "$organized_by",
 				"preserveNullAndEmptyArrays": true,
 			},
+		},
+				{
+			"$match": bson.M{"status": 1},
 		},
 	}
 
@@ -234,12 +234,8 @@ func GetEventsActiveWithUser(c *fiber.Ctx) error {
 	for cursor.Next(ctx) {
 		var event Data
 		if err := cursor.Decode(&event); err != nil {
-			
 			log.Fatal(err)
 		}
-
-		// log.Println(event.OrganizedBy)
-
 		events = append(events, event)
 	}
 	return c.JSON(events)
